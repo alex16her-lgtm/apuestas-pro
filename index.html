@@ -1,75 +1,86 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MVP Apuestas Pro</title>
-<script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MVP Apuestas Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white min-h-screen">
 
 <!-- RESET -->
 <div class="fixed bottom-4 right-4 z-50">
-  <button onclick="resetBanca()" class="bg-red-600 px-4 py-2 rounded-xl">
+  <button onclick="resetBanca()" class="bg-red-600 px-4 py-2 rounded-xl shadow hover:bg-red-700">
     Reiniciar banca
   </button>
 </div>
 
-<header class="max-w-7xl mx-auto px-4 py-4 flex justify-between">
+<header class="max-w-7xl mx-auto px-4 py-4 flex justify-between flex-wrap gap-2">
   <h1 class="text-2xl font-bold">⚽ MVP Apuestas Pro</h1>
-  <div>
-    Casa: <span id="casaLabel"></span> |
-    Balance: <span id="balanceActual" class="text-green-400"></span>
+  <div class="text-sm">
+    Casa: <span id="casaLabel" class="font-semibold"></span> |
+    Balance: <span id="balanceActual" class="text-green-400 font-semibold">Cargando...</span>
   </div>
 </header>
 
 <section class="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
   <div class="bg-slate-800 p-4 rounded-xl">
-    <p class="text-xs">Balance</p>
-    <p id="balanceCard" class="text-xl text-green-400"></p>
+    <p class="text-xs text-slate-400">Balance</p>
+    <p id="balanceCard" class="text-xl text-green-400 font-bold">—</p>
   </div>
   <div class="bg-slate-800 p-4 rounded-xl">
-    <p class="text-xs">Apuestas</p>
-    <p id="totalApuestas">0</p>
+    <p class="text-xs text-slate-400">Apuestas</p>
+    <p id="totalApuestas" class="text-xl font-bold">0</p>
   </div>
   <div class="bg-slate-800 p-4 rounded-xl">
-    <p class="text-xs">Ganadas</p>
-    <p id="ganadas">0</p>
+    <p class="text-xs text-slate-400">Ganadas</p>
+    <p id="ganadas" class="text-xl text-emerald-400 font-bold">0</p>
   </div>
   <div class="bg-slate-800 p-4 rounded-xl">
-    <p class="text-xs">ROI</p>
-    <p id="roi">0%</p>
+    <p class="text-xs text-slate-400">ROI</p>
+    <p id="roi" class="text-xl text-indigo-400 font-bold">0%</p>
   </div>
 </section>
 
-<!-- APUESTAS -->
 <section class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-<div class="bg-slate-800 p-5 rounded-2xl">
-  <h2>💰 Apuesta</h2>
+<!-- ANALISIS -->
+<div class="bg-slate-800 rounded-2xl p-5 shadow">
+  <h2 class="font-semibold mb-3">🧠 Análisis</h2>
+  <input id="aPartido" placeholder="Partido" class="w-full mb-2 p-2 rounded bg-slate-700" />
+  <textarea id="aTexto" placeholder="Observaciones" rows="3"
+    class="w-full p-2 rounded bg-slate-700"></textarea>
+  <button onclick="guardarAnalisis()" class="mt-3 w-full bg-emerald-600 py-2 rounded-xl">
+    Guardar análisis
+  </button>
+  <ul id="listaAnalisis" class="mt-4 space-y-2 text-sm"></ul>
+</div>
 
-  <select id="casa" onchange="cambiarCasa()" class="w-full p-2 bg-slate-700 rounded mb-2">
+<!-- APUESTAS -->
+<div class="bg-slate-800 rounded-2xl p-5 shadow">
+  <h2 class="font-semibold mb-3">💰 Apuesta</h2>
+
+  <select id="casa" onchange="cambiarCasa()" class="w-full mb-2 p-2 rounded bg-slate-700">
     <option value="betano">Betano</option>
     <option value="betplay">BetPlay</option>
   </select>
 
-  <input id="sCuota" type="number" step="0.01" placeholder="Cuota"
-    class="w-full p-2 bg-slate-700 rounded mb-2">
+  <input id="cuota" type="number" step="0.01" placeholder="Cuota"
+    class="w-full mb-2 p-2 rounded bg-slate-700" />
 
-  <input id="stake" type="number" placeholder="Stake"
-    class="w-full p-2 bg-slate-700 rounded">
+  <input id="stake" type="number" placeholder="Stake COP"
+    class="w-full mb-2 p-2 rounded bg-slate-700" />
 
   <button onclick="guardarApuesta()" class="mt-3 w-full bg-indigo-600 py-2 rounded-xl">
     Guardar apuesta
   </button>
 </div>
-
 </section>
 
 <section class="max-w-7xl mx-auto px-4 mt-10">
-  <div class="bg-slate-800 p-5 rounded-2xl">
-    <h2>📊 Historial</h2>
+  <div class="bg-slate-800 p-5 rounded-2xl shadow">
+    <h2 class="font-semibold mb-3">📊 Historial</h2>
     <div id="historial"></div>
   </div>
 </section>
@@ -78,106 +89,131 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc,
-  collection, addDoc, getDocs, query, where
+  getFirestore, collection, addDoc, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// 🔴 CONFIGURA AQUÍ
+/* 🔴 TU CONFIG FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
-  authDomain: "apuestas-analisis.firebaseapp.com",
-  projectId: "apuestas-analisis",
-  storageBucket: "apuestas-analisis.appspot.com",
-  messagingSenderId: "542021066839",
-  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "XXXX",
+  appId: "XXXX"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ===== ESTADO =====
-let casaActual = 'betano';
-let balance = 0;
+/* ===== ESTADO ===== */
+let casaActual = "betano";
+let balance = null;
 let apuestas = [];
 
-// ===== CASA =====
-async function cambiarCasa() {
+/* ===== CASA ===== */
+window.cambiarCasa = async () => {
   casaActual = casa.value;
   casaLabel.textContent = casaActual.toUpperCase();
   await cargarBalance();
   await cargarApuestas();
-}
+};
 
+/* ===== BALANCE ===== */
 async function cargarBalance() {
-  const ref = doc(db, "casas", casaActual);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    await setDoc(ref, { balance: 20000 });
-    balance = 20000;
-  } else {
-    balance = snap.data().balance;
-  }
+  balance = 20000;
+  const snap = await getDocs(query(collection(db, "balances"), where("casa", "==", casaActual)));
+  snap.forEach(d => balance = d.data().balance);
   actualizar();
 }
 
-// ===== RESET =====
-async function resetBanca() {
-  const monto = prompt("¿Monto inicial?");
-  if (!monto) return;
+window.resetBanca = async () => {
+  const monto = prompt(`¿Con cuánto deseas comenzar en ${casaActual.toUpperCase()}?`);
+  if (!monto || isNaN(monto)) return;
 
   balance = parseFloat(monto);
-  await setDoc(doc(db, "casas", casaActual), { balance });
-  apuestas = [];
+  await addDoc(collection(db, "balances"), { casa: casaActual, balance });
   actualizar();
+};
+
+/* ===== ANALISIS ===== */
+window.guardarAnalisis = async () => {
+  if (!aPartido.value || !aTexto.value) return;
+  await addDoc(collection(db, "analisis"), {
+    casa: casaActual,
+    partido: aPartido.value,
+    texto: aTexto.value
+  });
+  aPartido.value = aTexto.value = "";
+  cargarAnalisis();
+};
+
+async function cargarAnalisis() {
+  listaAnalisis.innerHTML = "";
+  const snap = await getDocs(query(collection(db, "analisis"), where("casa", "==", casaActual)));
+  snap.forEach(d => {
+    const a = d.data();
+    listaAnalisis.innerHTML += `
+      <li class="bg-slate-700 p-2 rounded">
+        <strong>${a.partido}</strong>
+        <p class="text-xs text-slate-300">${a.texto}</p>
+      </li>`;
+  });
 }
 
-// ===== APUESTAS =====
-async function guardarApuesta() {
-  const cuota = parseFloat(sCuota.value);
-  const s = parseFloat(stake.value);
+/* ===== APUESTAS ===== */
+window.guardarApuesta = async () => {
+  if (!cuota.value || !stake.value) return;
 
+  const s = parseFloat(stake.value);
   balance -= s;
 
   await addDoc(collection(db, "apuestas"), {
     casa: casaActual,
-    cuota,
+    cuota: parseFloat(cuota.value),
     stake: s,
-    resultado: "Pendiente",
-    fecha: new Date().toLocaleDateString()
+    resultado: "Pendiente"
   });
 
-  await setDoc(doc(db, "casas", casaActual), { balance });
-  await cargarApuestas();
-}
+  await addDoc(collection(db, "balances"), { casa: casaActual, balance });
 
-// ===== CARGAR =====
+  cuota.value = stake.value = "";
+  cargarApuestas();
+};
+
 async function cargarApuestas() {
   apuestas = [];
-  const q = query(collection(db, "apuestas"), where("casa", "==", casaActual));
-  const snap = await getDocs(q);
+  historial.innerHTML = "";
 
+  const snap = await getDocs(query(collection(db, "apuestas"), where("casa", "==", casaActual)));
   snap.forEach(d => apuestas.push(d.data()));
+
   actualizar();
 }
 
-// ===== UI =====
+/* ===== UI ===== */
 function actualizar() {
-  balanceActual.textContent = `$${balance.toLocaleString()} COP`;
-  balanceCard.textContent = `$${balance.toLocaleString()} COP`;
+  balanceActual.textContent = `$${balance.toLocaleString("es-CO")} COP`;
+  balanceCard.textContent = balanceActual.textContent;
   totalApuestas.textContent = apuestas.length;
 
-  historial.innerHTML = '';
+  const g = apuestas.filter(a => a.resultado === "Ganada").length;
+  ganadas.textContent = g;
+  roi.textContent = apuestas.length ? ((g / apuestas.length) * 100).toFixed(1) + "%" : "0%";
+
+  historial.innerHTML = "";
   apuestas.forEach(a => {
     historial.innerHTML += `
-      <div class="bg-slate-700 p-2 rounded mt-2">
-        cuota ${a.cuota} | stake $${a.stake}
+      <div class="bg-slate-700 p-2 rounded mt-1 text-sm">
+        Cuota ${a.cuota} | Stake $${a.stake}
       </div>`;
   });
 }
 
-// INIT
-cambiarCasa();
+/* INIT */
+casaLabel.textContent = casaActual.toUpperCase();
+await cargarBalance();
+await cargarAnalisis();
+await cargarApuestas();
 </script>
 
 </body>
