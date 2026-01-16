@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MVP Apuestas Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- FIREBASE + APP -->
+<script type="module">
+/* ================= FIREBASE ================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, getDocs,
+  deleteDoc, doc, updateDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* 🔴 REEMPLAZA ESTO CON TUS DATOS */
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
+  authDomain: "apuestas-analisis.firebaseapp.com",
+  projectId: "apuestas-analisis",
+  storageBucket: "apuestas-analisis.firebasestorage.app",
+  messagingSenderId: "542021066839",
+  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+/* =========================================== */
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ================= ESTADO ================= */
+let casaActual = "betano";
+let balance = 20000;
+let apuestas = [];
+
+/* ================= CASA ================= */
+window.cambiarCasa = async () => {
+  casaActual = casa.value;
+  await cargarTodo();
+};
+
+/* ================= RESET ================= */
+window.resetBanca = async () => {
+  const monto = prompt(`¿Con cuánto deseas comenzar en ${casaActual.toUpperCase()}?`);
+  if (!monto || isNaN(monto)) return;
+
+  balance = parseFloat(monto);
+  await addDoc(collection(db, "balances"), {
+    casa: casaActual,
+    balance,
+    fecha: new Date()
+  });
+  cargarTodo();
+};
+
+/* ================= ANALISIS ================= */
+window.guardarAnalisis = async () => {
+  if (!aPartido.value) return;
+
+  await addDoc(collection(db, "analisis"), {
+    casa: casaActual,
+    partido: aPartido.value,
+    texto: aTexto.value,
+    fecha: new Date().toLocaleDateString()
+  });
+  aPartido.value = aTexto.value = "";
+  cargarAnalisis();
+};
+
+async function cargarAnalisis() {
+  listaAnalisis.innerHTML = "";
+  const snap = await getDocs(collection(db, "analisis"));
+  snap.forEach(d => {
+    const a = d.data();
+    if (a.casa === casaActual) {
+      listaAnalisis.innerHTML += `
+        <li class="bg-slate-700 p-2 rounded">
+          <strong>${a.partido}</strong>
+          <p class="text-xs mt-1">${a.texto}</p>
+        </li>`;
+    }
+  });
+}
+
+/* ================= APUESTAS ================= */
+window.guardarApuesta = async () => {
+  if (!stake.value || stake.value <= 0) return alert("Stake inválido");
+
+  const cuota = tipoApuesta.value === "simple"
+    ? parseFloat(sCuota.value)
+    : parseFloat(cuotaTotal.textContent);
+
+  const s = parseInt(stake.value);
+  balance -= s;
+
+  await addDoc(collection(db, "apuestas"), {
+    casa: casaActual,
+    tipo: tipoApuesta.value,
+    cuota,
+    stake: s,
+    resultado: "Pendiente",
+    fecha: new Date().toLocaleDateString()
+  });
+
+  await addDoc(collection(db, "balances"), {
+    casa: casaActual,
+    balance,
+    fecha: new Date()
+  });
+
+  stake.value = sCuota.value = "";
+  cargarTodo();
+};
+
+async function cargarApuestas() {
+  apuestas = [];
+  historial.innerHTML = "";
+
+  const snap = await getDocs(collection(db, "apuestas"));
+  snap.forEach(d => {
+    const a = { id: d.id, ...d.data() };
+    if (a.casa === casaActual) apuestas.push(a);
+  });
+
+  actualizarUI();
+}
+
+/* ================= RESULTADO ================= */
+window.resolver = async (id, win) => {
+  const ap = apuestas.find(a => a.id === id);
+  if (!ap || ap.resultado !== "Pendiente") return;
+
+  ap.resultado = win ? "Ganada" : "Perdida";
+  if (win) balance += ap.stake * ap.cuota;
+
+  await updateDoc(doc(db, "apuestas", id), {
+    resultado: ap.resultado
+  });
+
+  await addDoc(collection(db, "balances"), {
+    casa: casaActual,
+    balance,
+    fecha: new Date()
+  });
+
+  cargarTodo();
+};
+
+/* ================= BALANCE ================= */
+async function cargarBalance() {
+  const snap = await getDocs(collection(db, "balances"));
+  snap.forEach(d => {
+    const b = d.data();
+    if (b.casa === casaActual) balance = b.balance;
+  });
+}
+
+/* ================= UI ================= */
+function actualizarUI() {
+  balanceActual.textContent = `$${balance.toLocaleString("es-CO")} COP`;
+  balanceCard.textContent = balanceActual.textContent;
+  totalApuestas.textContent = apuestas.length;
+  ganadas.textContent = apuestas.filter(a => a.resultado === "Ganada").length;
+  stakeRec.textContent = `$${Math.round(balance * 0.02).toLocaleString("es-CO")} COP`;
+
+  historial.innerHTML = "";
+  apuestas.forEach(a => {
+    historial.innerHTML += `
+      <div class="flex justify-between bg-slate-700 p-2 rounded mt-1 text-sm">
+        <span>${a.tipo} | cuota ${a.cuota} | $${a.stake}</span>
+        <span>
+          <button onclick="resolver('${a.id}', true)" class="text-green-400">✔</button>
+          <button onclick="resolver('${a.id}', false)" class="text-red-400 ml-2">✘</button>
+        </span>
+      </div>`;
+  });
+}
+
+/* ================= INIT ================= */
+async function cargarTodo() {
+  casaLabel.textContent = casaActual.toUpperCase();
+  await cargarBalance();
+  await cargarAnalisis();
+  await cargarApuestas();
+}
+
+window.onload = cargarTodo;
+</script>
+</head>
+
+<body class="bg-slate-900 text-white min-h-screen p-4">
+
+<h1 class="text-2xl font-bold mb-4">⚽ MVP Apuestas Pro</h1>
+
+<select id="casa" onchange="cambiarCasa()" class="bg-slate-800 p-2 rounded mb-4">
+  <option value="betano">Betano</option>
+  <option value="betplay">BetPlay</option>
+</select>
+
+<p class="mb-4">
+  Balance: <span id="balanceActual" class="text-green-400"></span>
+</p>
+
+<button onclick="resetBanca()" class="bg-red-600 px-4 py-2 rounded mb-6">
+  Reiniciar banca
+</button>
+
+<!-- (El resto del HTML visual puede ser el mismo que ya tienes) -->
+
+</body>
+</html>
