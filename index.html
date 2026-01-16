@@ -1,26 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MVP Apuestas Pro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MVP Apuestas Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white min-h-screen">
 
 <!-- RESET -->
 <div class="fixed bottom-4 right-4 z-50">
-  <button onclick="resetBanca()" class="bg-red-600 px-4 py-2 rounded-xl shadow hover:bg-red-700">
+  <button id="btnReset" class="bg-red-600 px-4 py-2 rounded-xl shadow hover:bg-red-700">
     Reiniciar banca
   </button>
 </div>
 
-<header class="max-w-7xl mx-auto px-4 py-4 flex justify-between flex-wrap gap-2">
+<header class="max-w-7xl mx-auto px-4 py-4 flex justify-between">
   <h1 class="text-2xl font-bold">⚽ MVP Apuestas Pro</h1>
   <div class="text-sm">
-    Casa: <span id="casaLabel" class="font-semibold"></span> |
-    Balance: <span id="balanceActual" class="text-green-400 font-semibold">Cargando...</span>
+    Casa: <span id="casaLabel"></span> |
+    Balance: <span id="balanceActual" class="text-green-400">—</span>
   </div>
 </header>
 
@@ -48,31 +48,31 @@
 <!-- ANALISIS -->
 <div class="bg-slate-800 rounded-2xl p-5 shadow">
   <h2 class="font-semibold mb-3">🧠 Análisis</h2>
-  <input id="aPartido" placeholder="Partido" class="w-full mb-2 p-2 rounded bg-slate-700" />
+  <input id="aPartido" placeholder="Partido" class="w-full mb-2 p-2 rounded bg-slate-700">
   <textarea id="aTexto" placeholder="Observaciones" rows="3"
     class="w-full p-2 rounded bg-slate-700"></textarea>
-  <button onclick="guardarAnalisis()" class="mt-3 w-full bg-emerald-600 py-2 rounded-xl">
+  <button id="btnAnalisis" class="mt-3 w-full bg-emerald-600 py-2 rounded-xl">
     Guardar análisis
   </button>
   <ul id="listaAnalisis" class="mt-4 space-y-2 text-sm"></ul>
 </div>
 
-<!-- APUESTAS -->
+<!-- APUESTA -->
 <div class="bg-slate-800 rounded-2xl p-5 shadow">
   <h2 class="font-semibold mb-3">💰 Apuesta</h2>
 
-  <select id="casa" onchange="cambiarCasa()" class="w-full mb-2 p-2 rounded bg-slate-700">
+  <select id="casa" class="w-full mb-2 p-2 rounded bg-slate-700">
     <option value="betano">Betano</option>
     <option value="betplay">BetPlay</option>
   </select>
 
   <input id="cuota" type="number" step="0.01" placeholder="Cuota"
-    class="w-full mb-2 p-2 rounded bg-slate-700" />
+    class="w-full mb-2 p-2 rounded bg-slate-700">
 
-  <input id="stake" type="number" placeholder="Stake COP"
-    class="w-full mb-2 p-2 rounded bg-slate-700" />
+  <input id="stake" type="number" placeholder="Stake"
+    class="w-full mb-2 p-2 rounded bg-slate-700">
 
-  <button onclick="guardarApuesta()" class="mt-3 w-full bg-indigo-600 py-2 rounded-xl">
+  <button id="btnApuesta" class="mt-3 w-full bg-indigo-600 py-2 rounded-xl">
     Guardar apuesta
   </button>
 </div>
@@ -85,14 +85,13 @@
   </div>
 </section>
 
-<!-- FIREBASE -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-/* 🔴 TU CONFIG FIREBASE */
+/* 🔴 TU CONFIG */
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
   authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -105,47 +104,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ===== ESTADO ===== */
 let casaActual = "betano";
-let balance = null;
+let balance = 0;
 let apuestas = [];
 
-/* ===== CASA ===== */
-window.cambiarCasa = async () => {
-  casaActual = casa.value;
-  casaLabel.textContent = casaActual.toUpperCase();
-  await cargarBalance();
-  await cargarApuestas();
-};
-
-/* ===== BALANCE ===== */
+/* ===== FUNCIONES ===== */
 async function cargarBalance() {
   balance = 20000;
   const snap = await getDocs(query(collection(db, "balances"), where("casa", "==", casaActual)));
   snap.forEach(d => balance = d.data().balance);
-  actualizar();
+  actualizarUI();
 }
-
-window.resetBanca = async () => {
-  const monto = prompt(`¿Con cuánto deseas comenzar en ${casaActual.toUpperCase()}?`);
-  if (!monto || isNaN(monto)) return;
-
-  balance = parseFloat(monto);
-  await addDoc(collection(db, "balances"), { casa: casaActual, balance });
-  actualizar();
-};
-
-/* ===== ANALISIS ===== */
-window.guardarAnalisis = async () => {
-  if (!aPartido.value || !aTexto.value) return;
-  await addDoc(collection(db, "analisis"), {
-    casa: casaActual,
-    partido: aPartido.value,
-    texto: aTexto.value
-  });
-  aPartido.value = aTexto.value = "";
-  cargarAnalisis();
-};
 
 async function cargarAnalisis() {
   listaAnalisis.innerHTML = "";
@@ -160,10 +129,18 @@ async function cargarAnalisis() {
   });
 }
 
-/* ===== APUESTAS ===== */
-window.guardarApuesta = async () => {
-  if (!cuota.value || !stake.value) return;
+async function guardarAnalisis() {
+  if (!aPartido.value || !aTexto.value) return;
+  await addDoc(collection(db, "analisis"), {
+    casa: casaActual,
+    partido: aPartido.value,
+    texto: aTexto.value
+  });
+  aPartido.value = aTexto.value = "";
+  cargarAnalisis();
+}
 
+async function guardarApuesta() {
   const s = parseFloat(stake.value);
   balance -= s;
 
@@ -175,45 +152,36 @@ window.guardarApuesta = async () => {
   });
 
   await addDoc(collection(db, "balances"), { casa: casaActual, balance });
-
   cuota.value = stake.value = "";
-  cargarApuestas();
+  cargarTodo();
+}
+
+async function resetBanca() {
+  const monto = prompt(`¿Con cuánto deseas comenzar en ${casaActual.toUpperCase()}?`);
+  if (!monto) return;
+  balance = parseFloat(monto);
+  await addDoc(collection(db, "balances"), { casa: casaActual, balance });
+  cargarTodo();
+}
+
+async function cargarTodo() {
+  casaLabel.textContent = casaActual.toUpperCase();
+  await cargarBalance();
+  await cargarAnalisis();
+}
+
+/* ===== EVENTOS ===== */
+btnReset.onclick = resetBanca;
+btnAnalisis.onclick = guardarAnalisis;
+btnApuesta.onclick = guardarApuesta;
+
+casa.onchange = () => {
+  casaActual = casa.value;
+  cargarTodo();
 };
 
-async function cargarApuestas() {
-  apuestas = [];
-  historial.innerHTML = "";
-
-  const snap = await getDocs(query(collection(db, "apuestas"), where("casa", "==", casaActual)));
-  snap.forEach(d => apuestas.push(d.data()));
-
-  actualizar();
-}
-
-/* ===== UI ===== */
-function actualizar() {
-  balanceActual.textContent = `$${balance.toLocaleString("es-CO")} COP`;
-  balanceCard.textContent = balanceActual.textContent;
-  totalApuestas.textContent = apuestas.length;
-
-  const g = apuestas.filter(a => a.resultado === "Ganada").length;
-  ganadas.textContent = g;
-  roi.textContent = apuestas.length ? ((g / apuestas.length) * 100).toFixed(1) + "%" : "0%";
-
-  historial.innerHTML = "";
-  apuestas.forEach(a => {
-    historial.innerHTML += `
-      <div class="bg-slate-700 p-2 rounded mt-1 text-sm">
-        Cuota ${a.cuota} | Stake $${a.stake}
-      </div>`;
-  });
-}
-
 /* INIT */
-casaLabel.textContent = casaActual.toUpperCase();
-await cargarBalance();
-await cargarAnalisis();
-await cargarApuestas();
+cargarTodo();
 </script>
 
 </body>
