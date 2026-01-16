@@ -4,110 +4,114 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MVP Apuestas Pro</title>
+
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- FIREBASE + APP -->
+<!-- ================= FIREBASE + APP ================= -->
 <script type="module">
-/* ================= FIREBASE ================= */
+/* ===== IMPORTS FIREBASE (CDN, CORRECTO PARA GITHUB) ===== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs,
-  deleteDoc, doc, updateDoc
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* 🔴 REEMPLAZA ESTO CON TUS DATOS */
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
+/* ===== CONFIG FIREBASE ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
   authDomain: "apuestas-analisis.firebaseapp.com",
   projectId: "apuestas-analisis",
-  storageBucket: "apuestas-analisis.firebasestorage.app",
+  storageBucket: "apuestas-analisis.appspot.com",
   messagingSenderId: "542021066839",
   appId: "1:542021066839:web:bb6a43f578a39d07c68312"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-/* =========================================== */
-
+/* ===== INIT FIREBASE ===== */
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ================= ESTADO ================= */
+/* ===== ESTADO ===== */
 let casaActual = "betano";
 let balance = 20000;
 let apuestas = [];
 
-/* ================= CASA ================= */
+/* ===== CAMBIAR CASA ===== */
 window.cambiarCasa = async () => {
-  casaActual = casa.value;
+  casaActual = document.getElementById("casa").value;
   await cargarTodo();
 };
 
-/* ================= RESET ================= */
+/* ===== RESET BANCA ===== */
 window.resetBanca = async () => {
   const monto = prompt(`¿Con cuánto deseas comenzar en ${casaActual.toUpperCase()}?`);
   if (!monto || isNaN(monto)) return;
 
   balance = parseFloat(monto);
+
   await addDoc(collection(db, "balances"), {
     casa: casaActual,
     balance,
     fecha: new Date()
   });
+
   cargarTodo();
 };
 
-/* ================= ANALISIS ================= */
+/* ===== ANALISIS ===== */
 window.guardarAnalisis = async () => {
-  if (!aPartido.value) return;
+  const partido = document.getElementById("aPartido").value;
+  const texto = document.getElementById("aTexto").value;
+  if (!partido) return;
 
   await addDoc(collection(db, "analisis"), {
     casa: casaActual,
-    partido: aPartido.value,
-    texto: aTexto.value,
+    partido,
+    texto,
     fecha: new Date().toLocaleDateString()
   });
-  aPartido.value = aTexto.value = "";
+
+  document.getElementById("aPartido").value = "";
+  document.getElementById("aTexto").value = "";
   cargarAnalisis();
 };
 
 async function cargarAnalisis() {
-  listaAnalisis.innerHTML = "";
+  const lista = document.getElementById("listaAnalisis");
+  lista.innerHTML = "";
+
   const snap = await getDocs(collection(db, "analisis"));
   snap.forEach(d => {
     const a = d.data();
     if (a.casa === casaActual) {
-      listaAnalisis.innerHTML += `
+      lista.innerHTML += `
         <li class="bg-slate-700 p-2 rounded">
           <strong>${a.partido}</strong>
-          <p class="text-xs mt-1">${a.texto}</p>
+          <p class="text-xs mt-1 text-slate-300">${a.texto}</p>
         </li>`;
     }
   });
 }
 
-/* ================= APUESTAS ================= */
+/* ===== APUESTAS ===== */
 window.guardarApuesta = async () => {
-  if (!stake.value || stake.value <= 0) return alert("Stake inválido");
+  const stakeInput = document.getElementById("stake");
+  const cuotaInput = document.getElementById("sCuota");
 
-  const cuota = tipoApuesta.value === "simple"
-    ? parseFloat(sCuota.value)
-    : parseFloat(cuotaTotal.textContent);
+  if (!stakeInput.value || !cuotaInput.value) return;
 
-  const s = parseInt(stake.value);
-  balance -= s;
+  const stake = parseFloat(stakeInput.value);
+  const cuota = parseFloat(cuotaInput.value);
+
+  balance -= stake;
 
   await addDoc(collection(db, "apuestas"), {
     casa: casaActual,
-    tipo: tipoApuesta.value,
     cuota,
-    stake: s,
+    stake,
     resultado: "Pendiente",
     fecha: new Date().toLocaleDateString()
   });
@@ -118,13 +122,16 @@ window.guardarApuesta = async () => {
     fecha: new Date()
   });
 
-  stake.value = sCuota.value = "";
+  stakeInput.value = "";
+  cuotaInput.value = "";
+
   cargarTodo();
 };
 
 async function cargarApuestas() {
   apuestas = [];
-  historial.innerHTML = "";
+  const hist = document.getElementById("historial");
+  hist.innerHTML = "";
 
   const snap = await getDocs(collection(db, "apuestas"));
   snap.forEach(d => {
@@ -135,7 +142,7 @@ async function cargarApuestas() {
   actualizarUI();
 }
 
-/* ================= RESULTADO ================= */
+/* ===== RESOLVER ===== */
 window.resolver = async (id, win) => {
   const ap = apuestas.find(a => a.id === id);
   if (!ap || ap.resultado !== "Pendiente") return;
@@ -156,7 +163,7 @@ window.resolver = async (id, win) => {
   cargarTodo();
 };
 
-/* ================= BALANCE ================= */
+/* ===== BALANCE ===== */
 async function cargarBalance() {
   const snap = await getDocs(collection(db, "balances"));
   snap.forEach(d => {
@@ -165,19 +172,16 @@ async function cargarBalance() {
   });
 }
 
-/* ================= UI ================= */
+/* ===== UI ===== */
 function actualizarUI() {
-  balanceActual.textContent = `$${balance.toLocaleString("es-CO")} COP`;
-  balanceCard.textContent = balanceActual.textContent;
-  totalApuestas.textContent = apuestas.length;
-  ganadas.textContent = apuestas.filter(a => a.resultado === "Ganada").length;
-  stakeRec.textContent = `$${Math.round(balance * 0.02).toLocaleString("es-CO")} COP`;
+  document.getElementById("balanceActual").textContent =
+    `$${balance.toLocaleString("es-CO")} COP`;
 
-  historial.innerHTML = "";
+  const hist = document.getElementById("historial");
   apuestas.forEach(a => {
-    historial.innerHTML += `
-      <div class="flex justify-between bg-slate-700 p-2 rounded mt-1 text-sm">
-        <span>${a.tipo} | cuota ${a.cuota} | $${a.stake}</span>
+    hist.innerHTML += `
+      <div class="flex justify-between bg-slate-700 p-2 rounded mt-2 text-sm">
+        <span>Cuota ${a.cuota} | $${a.stake}</span>
         <span>
           <button onclick="resolver('${a.id}', true)" class="text-green-400">✔</button>
           <button onclick="resolver('${a.id}', false)" class="text-red-400 ml-2">✘</button>
@@ -186,15 +190,15 @@ function actualizarUI() {
   });
 }
 
-/* ================= INIT ================= */
+/* ===== INIT ===== */
 async function cargarTodo() {
-  casaLabel.textContent = casaActual.toUpperCase();
+  document.getElementById("balanceActual").textContent = "Cargando...";
   await cargarBalance();
   await cargarAnalisis();
   await cargarApuestas();
 }
 
-window.onload = cargarTodo;
+window.addEventListener("DOMContentLoaded", cargarTodo);
 </script>
 </head>
 
@@ -215,7 +219,27 @@ window.onload = cargarTodo;
   Reiniciar banca
 </button>
 
-<!-- (El resto del HTML visual puede ser el mismo que ya tienes) -->
+<div class="grid md:grid-cols-2 gap-4">
+  <div class="bg-slate-800 p-4 rounded">
+    <h2 class="font-semibold mb-2">🧠 Análisis</h2>
+    <input id="aPartido" class="w-full p-2 mb-2 rounded bg-slate-700" placeholder="Partido">
+    <textarea id="aTexto" class="w-full p-2 rounded bg-slate-700" placeholder="Observaciones"></textarea>
+    <button onclick="guardarAnalisis()" class="mt-2 bg-emerald-600 px-4 py-2 rounded w-full">
+      Guardar análisis
+    </button>
+    <ul id="listaAnalisis" class="mt-3 space-y-2 text-sm"></ul>
+  </div>
+
+  <div class="bg-slate-800 p-4 rounded">
+    <h2 class="font-semibold mb-2">💰 Apuesta</h2>
+    <input id="sCuota" type="number" step="0.01" placeholder="Cuota" class="w-full p-2 mb-2 rounded bg-slate-700">
+    <input id="stake" type="number" placeholder="Stake COP" class="w-full p-2 rounded bg-slate-700">
+    <button onclick="guardarApuesta()" class="mt-2 bg-indigo-600 px-4 py-2 rounded w-full">
+      Guardar apuesta
+    </button>
+    <div id="historial" class="mt-4"></div>
+  </div>
+</div>
 
 </body>
 </html>
