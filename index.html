@@ -263,36 +263,49 @@ async function guardarApuesta() {
 /* =========================
    HISTORIAL
 ========================= */
-function cargarHistorial() {
+import {
+  collection,
+  getDocs,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+window.cargarHistorial = async function () {
   const cont = document.getElementById('historial');
   cont.innerHTML = '';
-  const data = JSON.parse(localStorage.getItem('apuestas')) || [];
+
+  const querySnapshot = await getDocs(collection(window.db, "apuestas"));
+  const apuestas = [];
+
+  querySnapshot.forEach(d => {
+    apuestas.push({ id: d.id, ...d.data() });
+  });
 
   const porFecha = {};
-  data.forEach((a, i) => {
+  apuestas.forEach(a => {
     if (!porFecha[a.fecha]) porFecha[a.fecha] = [];
-    porFecha[a.fecha].push({ ...a, index: i });
+    porFecha[a.fecha].push(a);
   });
 
   Object.keys(porFecha).forEach(fecha => {
     let html = `<details class="card"><summary>📅 ${fecha}</summary>`;
 
     porFecha[fecha].forEach(a => {
-      html += `<details style="margin-left:15px">
-        <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake}</summary>`;
+      html += `
+      <details style="margin-left:15px">
+        <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake}</summary>
+      `;
 
-      a.opciones.forEach((o, oi) => {
+      a.opciones.forEach((o, i) => {
         html += `
         <div class="option">
-          <strong>${o.partido}</strong><br>
+          <b>${o.partido}</b><br>
           ${o.mercado}<br>
-          <select onchange="actualizarOpcion(${a.index},${oi},'estado',this.value)">
+          <select onchange="actualizarOpcionFirebase('${a.id}',${i},this.value)">
             <option ${o.estado==='Pendiente'?'selected':''}>Pendiente</option>
             <option ${o.estado==='Ganada'?'selected':''}>Ganada</option>
             <option ${o.estado==='Perdida'?'selected':''}>Perdida</option>
           </select>
-          <input value="${o.motivo||''}"
-           oninput="actualizarOpcion(${a.index},${oi},'motivo',this.value)">
         </div>`;
       });
 
@@ -302,7 +315,20 @@ function cargarHistorial() {
     html += `</details>`;
     cont.innerHTML += html;
   });
-}
+};
+
+window.actualizarOpcionFirebase = async function (apuestaId, index, estado) {
+  const ref = doc(window.db, "apuestas", apuestaId);
+  const snap = await getDocs(collection(window.db, "apuestas"));
+
+  snap.forEach(async d => {
+    if (d.id === apuestaId) {
+      const data = d.data();
+      data.opciones[index].estado = estado;
+      await updateDoc(ref, { opciones: data.opciones });
+    }
+  });
+};
 
 /* =========================
    ACTUALIZAR OPCIÓN
@@ -310,7 +336,6 @@ function cargarHistorial() {
 function actualizarOpcion(ai, oi, campo, valor) {
   const data = JSON.parse(localStorage.getItem('apuestas'));
   data[ai].opciones[oi][campo] = valor;
-  localStorage.setItem('apuestas', JSON.stringify(data));
   calcularBanca();
 }
 
@@ -323,7 +348,6 @@ function guardarBanca() {
 
   const bancas = JSON.parse(localStorage.getItem('bancas')) || {};
   bancas[persona] = banca;
-  localStorage.setItem('bancas', JSON.stringify(bancas));
   calcularBanca();
 }
 
