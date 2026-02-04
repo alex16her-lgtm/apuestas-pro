@@ -124,6 +124,15 @@ summary {
     margin: auto;
   }
 }
+  #stakeCalculator {
+  margin-top: 20px;
+}
+
+#stakeCalculator p {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
 </style>
 
 </head>
@@ -153,6 +162,21 @@ summary {
   <p><strong>Promedio de stake:</strong> $<span id="promedioStake">0</span></p>
 </div>
 
+<div class="card" id="stakeCalculator">
+  <h3>📊 Calculadora de Stake</h3>
+
+  <label>Banca actual</label>
+  <input type="number" id="bancaCalc" placeholder="Ej: 100000">
+
+  <label>Cuota</label>
+  <input type="number" step="0.01" id="cuotaCalc" placeholder="Ej: 1.85">
+
+  <button type="button" onclick="calcularStakeUI()">
+    Calcular apuesta
+  </button>
+
+  <p id="resultadoStake"></p>
+</div>
 
 <div class="card">
   <label>Tipo</label>
@@ -365,6 +389,46 @@ btn.addEventListener("click", () => {
 /* INIT */
 cargarHistorial();
 calcularBanca();
+  function obtenerStakePorcentaje(cuota) {
+  if (cuota <= 1.5) return 1;
+  if (cuota <= 1.8) return 1.5;
+  if (cuota <= 2.2) return 2;
+  if (cuota <= 3) return 2.5;
+  return 3;
+}
+
+function calcularApuesta(banca, cuota) {
+  const stakePorcentaje = obtenerStakePorcentaje(cuota);
+  let apuesta = (banca * stakePorcentaje) / 100;
+
+  if (apuesta < 500) apuesta = 500;
+
+  return {
+    apuesta: Math.round(apuesta),
+    stakePorcentaje
+  };
+}
+
+window.calcularStakeUI = function () {
+  const banca = Number(document.getElementById('bancaCalc').value);
+  const cuota = Number(document.getElementById('cuotaCalc').value);
+  const out = document.getElementById('resultadoStake');
+
+  if (!banca || !cuota) {
+    out.innerText = '⚠️ Ingresa banca y cuota';
+    return;
+  }
+
+  const { apuesta, stakePorcentaje } = calcularApuesta(banca, cuota);
+  const stakeReal = ((apuesta / banca) * 100).toFixed(2);
+
+  out.innerHTML = `
+    💰 Apuesta sugerida: <b>$${apuesta}</b><br>
+    🎯 Stake sugerido: <b>${stakePorcentaje}%</b><br>
+    📊 Stake real: <b>${stakeReal}%</b>
+  `;
+};
+
 </script>
 
 
