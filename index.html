@@ -162,21 +162,23 @@ summary {
   <p><strong>Promedio de stake:</strong> $<span id="promedioStake">0</span></p>
 </div>
 
-<div class="card" id="stakeCalculator">
-  <h3>📊 Calculadora de Stake</h3>
+<div class="card">
+  <h3>🎯 Calculadora de Stake</h3>
 
-  <label>Banca actual</label>
-  <input type="number" id="bancaCalc" placeholder="Ej: 100000">
+  <input
+    id="cuotaCalc"
+    type="number"
+    step="0.01"
+    placeholder="Cuota"
+    oninput="calcularStakeAutomatico()"
+  />
 
-  <label>Cuota</label>
-  <input type="number" step="0.01" id="cuotaCalc" placeholder="Ej: 1.85">
-
-  <button type="button" onclick="calcularStakeUI()">
-    Calcular apuesta
-  </button>
-
-  <p id="resultadoStake"></p>
+  <p>
+    Stake sugerido:
+    <b id="stakeSugerido">—</b>
+  </p>
 </div>
+
 
 <div class="card">
   <label>Tipo</label>
@@ -389,13 +391,14 @@ btn.addEventListener("click", () => {
 /* INIT */
 cargarHistorial();
 calcularBanca();
-  function obtenerStakePorcentaje(cuota) {
-  if (cuota <= 1.5) return 1;
-  if (cuota <= 1.8) return 1.5;
+ function obtenerStakePorcentaje(cuota) {
+  if (cuota <= 1.5) return 3;
+  if (cuota <= 1.8) return 2.5;
   if (cuota <= 2.2) return 2;
-  if (cuota <= 3) return 2.5;
-  return 3;
+  if (cuota <= 3) return 1.5;
+  return 1;
 }
+
 
 function calcularApuesta(banca, cuota) {
   const stakePorcentaje = obtenerStakePorcentaje(cuota);
@@ -428,6 +431,26 @@ window.calcularStakeUI = function () {
     📊 Stake real: <b>${stakeReal}%</b>
   `;
 };
+  window.calcularStakeAutomatico = function () {
+  const cuota = Number(document.getElementById("cuotaCalc").value);
+  if (!cuota || cuota <= 1) return;
+
+  const bancaActual = Number(
+    document.getElementById("bancaActual").innerText
+  );
+
+  if (!bancaActual || bancaActual <= 0) return;
+
+  const porcentaje = obtenerStakePorcentaje(cuota);
+  let stake = bancaActual * (porcentaje / 100);
+
+  // mínimo 500
+  if (stake < 500) stake = 500;
+
+  document.getElementById("stakeSugerido").innerText =
+    `$${stake.toFixed(0)} (${porcentaje}%)`;
+};
+
 
 </script>
 
