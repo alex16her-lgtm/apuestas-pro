@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Seguimiento de Apuestas</title>
+<script>
+  // Ocultar admin ANTES de renderizar
+  if (localStorage.getItem("isAdmin") !== "true") {
+    document.write('<style>#adminPanel{display:none!important}</style>');
+  }
+</script>
 
 <style>
 :root {
@@ -214,11 +220,12 @@ summary {
 <div id="historial"></div>
   <button onclick="loginAdmin()">🔐 Admin</button>
 
-<div id="adminPanel" hidden>
+<div id="adminPanel">
   <button onclick="borrarDatos()" style="background:red;color:white">
     🗑️ Borrar TODAS las apuestas
   </button>
 </div>
+
 
 <script type="module">
   window.ADMIN_KEY = "rayo";
@@ -492,7 +499,7 @@ window.loginAdmin = function () {
   const pass = prompt("Clave de administrador:");
   if (pass === ADMIN_KEY) {
     localStorage.setItem("isAdmin", "true");
-    document.getElementById("adminPanel").hidden = false;
+    document.getElementById("adminPanel").style.display = "block";
     alert("Modo admin activado ✅");
   } else {
     alert("Clave incorrecta ❌");
@@ -513,15 +520,13 @@ window.borrarDatos = async function () {
   cargarHistorial();
   calcularBanca();
 };
-document.addEventListener("DOMContentLoaded", () => {
-  const panel = document.getElementById("adminPanel");
+const adminPanel = document.getElementById("adminPanel");
+if (localStorage.getItem("isAdmin") === "true") {
+  adminPanel.style.display = "block";
+} else {
+  adminPanel.style.display = "none";
+}
 
-  if (localStorage.getItem("isAdmin") === "true") {
-    panel.hidden = false;
-  } else {
-    panel.hidden = true;
-  }
-});
 
 
 
