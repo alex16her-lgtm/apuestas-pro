@@ -198,7 +198,7 @@ summary {
     <option>Combinada</option>
   </select>
 
-  <label>Stake</label>
+  <label>Dinero $</label>
   <input type="number" id="stake">
 
   <label>Cuota Total</label>
@@ -214,11 +214,12 @@ summary {
 <div id="historial"></div>
   <button onclick="loginAdmin()">🔐 Admin</button>
 
-<div id="adminPanel" style="display:none; margin-top:10px">
+<div id="adminPanel" hidden>
   <button onclick="borrarDatos()" style="background:red;color:white">
     🗑️ Borrar TODAS las apuestas
   </button>
 </div>
+
 <script type="module">
   window.ADMIN_KEY = "rayo";
 /* =========================
@@ -491,12 +492,13 @@ window.loginAdmin = function () {
   const pass = prompt("Clave de administrador:");
   if (pass === ADMIN_KEY) {
     localStorage.setItem("isAdmin", "true");
-    document.getElementById("adminPanel").style.display = "block";
+    document.getElementById("adminPanel").hidden = false;
     alert("Modo admin activado ✅");
   } else {
     alert("Clave incorrecta ❌");
   }
 };
+
 window.borrarDatos = async function () {
   if (localStorage.getItem("isAdmin") !== "true") return;
 
@@ -511,9 +513,16 @@ window.borrarDatos = async function () {
   cargarHistorial();
   calcularBanca();
 };
-if (localStorage.getItem("isAdmin") === "true") {
-  document.getElementById("adminPanel").style.display = "block";
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const panel = document.getElementById("adminPanel");
+
+  if (localStorage.getItem("isAdmin") === "true") {
+    panel.hidden = false;
+  } else {
+    panel.hidden = true;
+  }
+});
+
 
 
 </script>
