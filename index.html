@@ -212,11 +212,20 @@ summary {
 
 <h2>Historial</h2>
 <div id="historial"></div>
-<script type="module">
+  <button onclick="loginAdmin()">🔐 Admin</button>
+
+<div id="adminPanel" style="display:none; margin-top:10px">
+  <button onclick="borrarDatos()" style="background:red;color:white">
+    🗑️ Borrar TODAS las apuestas
+  </button>
+</div>
+<script type="module" const ADMIN_KEY = "admin123";>
 /* =========================
    FIREBASE
 ========================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 import {
   getFirestore,
   collection,
@@ -477,6 +486,33 @@ window.calcularStakeAutomatico = function () {
   document.getElementById("stake").value = window.stakeCalculado;
 };
 
+window.loginAdmin = function () {
+  const pass = prompt("Clave de administrador:");
+  if (pass === ADMIN_KEY) {
+    localStorage.setItem("isAdmin", "true");
+    document.getElementById("adminPanel").style.display = "block";
+    alert("Modo admin activado ✅");
+  } else {
+    alert("Clave incorrecta ❌");
+  }
+};
+window.borrarDatos = async function () {
+  if (localStorage.getItem("isAdmin") !== "true") return;
+
+  if (!confirm("⚠️ Esto borrará TODAS las apuestas. ¿Seguro?")) return;
+
+  const snap = await getDocs(collection(db, "apuestas"));
+  for (const d of snap.docs) {
+    await deleteDoc(doc(db, "apuestas", d.id));
+  }
+
+  alert("Datos eliminados ✅");
+  cargarHistorial();
+  calcularBanca();
+};
+if (localStorage.getItem("isAdmin") === "true") {
+  document.getElementById("adminPanel").style.display = "block";
+}
 
 
 </script>
