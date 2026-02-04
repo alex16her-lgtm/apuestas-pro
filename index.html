@@ -155,7 +155,7 @@ summary {
   </select>
 
   <label>Banca inicial (COP)</label>
-  <input type="number" id="bancaInicial">
+  <input type="number" id="bancaInicial" id="stake">
   <button onclick="guardarBanca()">💾 Guardar banca</button>
 
   <p><strong>Banca actual:</strong> $<span id="bancaActual">0</span></p>
@@ -173,11 +173,22 @@ summary {
     oninput="calcularStakeAutomatico()"
   />
 
+  <select id="modoRiesgo" onchange="calcularStakeAutomatico()">
+    <option value="conservador">🟢 Conservador</option>
+    <option value="normal" selected>🟡 Normal</option>
+    <option value="agresivo">🔴 Agresivo</option>
+  </select>
+
   <p>
     Stake sugerido:
     <b id="stakeSugerido">—</b>
   </p>
+
+  <button onclick="copiarStakeAlFormulario()">
+    📋 Usar este stake
+  </button>
 </div>
+
 
 
 <div class="card">
@@ -431,25 +442,41 @@ window.calcularStakeUI = function () {
     📊 Stake real: <b>${stakeReal}%</b>
   `;
 };
-  window.calcularStakeAutomatico = function () {
+window.calcularStakeAutomatico = function () {
   const cuota = Number(document.getElementById("cuotaCalc").value);
   if (!cuota || cuota <= 1) return;
 
   const bancaActual = Number(
     document.getElementById("bancaActual").innerText
   );
-
   if (!bancaActual || bancaActual <= 0) return;
 
-  const porcentaje = obtenerStakePorcentaje(cuota);
+  let porcentaje = obtenerStakePorcentaje(cuota);
+
+  const modo = document.getElementById("modoRiesgo").value;
+  if (modo === "conservador") porcentaje -= 0.5;
+  if (modo === "agresivo") porcentaje += 0.5;
+
+  // límites de seguridad
+  if (porcentaje < 0.5) porcentaje = 0.5;
+  if (porcentaje > 4) porcentaje = 4;
+
   let stake = bancaActual * (porcentaje / 100);
 
-  // mínimo 500
   if (stake < 500) stake = 500;
+
+  // guardamos stake calculado para copiarlo luego
+  window.stakeCalculado = stake.toFixed(0);
 
   document.getElementById("stakeSugerido").innerText =
     `$${stake.toFixed(0)} (${porcentaje}%)`;
 };
+
+  window.copiarStakeAlFormulario = function () {
+  if (!window.stakeCalculado) return;
+  document.getElementById("stake").value = window.stakeCalculado;
+};
+
 
 
 </script>
