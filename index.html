@@ -165,6 +165,10 @@ summary {
   <button onclick="guardarBanca()">💾 Guardar banca</button>
 
   <p><strong>Banca actual:</strong> $<span id="bancaActual">0</span></p>
+  <div id="rentabilidad" class="card">
+  💹 Rentabilidad: --
+</div>
+
   <p><strong>Promedio de stake:</strong> $<span id="promedioStake">0</span></p>
 </div>
 
@@ -303,6 +307,7 @@ window.guardarApuesta = async function () {
   document.getElementById('opciones').innerHTML = '';
   cargarHistorial();
   calcularBanca();
+  calcularRentabilidad();
 };
 
 /* =========================
@@ -364,6 +369,7 @@ window.actualizarOpcion = async function (apuestaId, index, estado) {
       data.opciones[index].estado = estado;
       await updateDoc(ref, { opciones: data.opciones });
       calcularBanca();
+      calcularRentabilidad();
     }
   });
 };
@@ -400,6 +406,41 @@ window.calcularBanca = function () {
 
     document.getElementById('bancaActual').innerText = banca.toFixed(0);
   });
+};
+window.calcularRentabilidad = async function () {
+  const persona = document.getElementById("filtroPersona").value;
+
+  let totalApostado = 0;
+  let gananciaNeta = 0;
+
+  const snap = await getDocs(collection(db, "apuestas"));
+
+  snap.forEach(d => {
+    const a = d.data();
+    if (a.responsable !== persona) return;
+
+    // ignorar pendientes
+    if (a.opciones.some(o => o.estado === "Pendiente")) return;
+
+    totalApostado += a.stake;
+
+    if (a.opciones.some(o => o.estado === "Perdida")) {
+      gananciaNeta -= a.stake;
+    } else {
+      gananciaNeta += (a.stake * a.cuota) - a.stake;
+    }
+  });
+
+  const roi =
+    totalApostado > 0
+      ? ((gananciaNeta / totalApostado) * 100).toFixed(2)
+      : 0;
+
+  document.getElementById("rentabilidad").innerHTML = `
+    💹 Rentabilidad: <b>${roi}%</b><br>
+    📊 Total apostado: <b>$${totalApostado.toFixed(0)}</b><br>
+    💰 Ganancia neta: <b>$${gananciaNeta.toFixed(0)}</b>
+  `;
 };
 
 /* =========================
@@ -519,6 +560,8 @@ window.borrarDatos = async function () {
   alert("Datos eliminados ✅");
   cargarHistorial();
   calcularBanca();
+  calcularRentabilidad();
+
 };
 const adminPanel = document.getElementById("adminPanel");
 if (localStorage.getItem("isAdmin") === "true") {
