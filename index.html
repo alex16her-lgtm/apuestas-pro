@@ -203,7 +203,7 @@ summary {
 
 <div class="card">
   <label>Tipo</label>
-  <select id="tipo">
+ <select id="tipo" onchange="recalcularCuotaTotal()">
     <option>Simple</option>
     <option>Combinada</option>
   </select>
@@ -270,13 +270,14 @@ window.opcionesTemp = [];
 ========================= */
 window.agregarOpcion = function () {
   const i = opcionesTemp.length;
-  opcionesTemp.push({
-  partido:'',
-  mercado:'',
-  cuota: 1,
-  estado:'Pendiente',
-  motivo:''
+ opcionesTemp.push({
+  partido: '',
+  mercado: '',
+  cuota: 0,
+  estado: 'Pendiente',
+  motivo: ''
 });
+
 
 
   const div = document.createElement('div');
@@ -284,12 +285,13 @@ window.agregarOpcion = function () {
   div.innerHTML = `
     <input placeholder="Partido" oninput="opcionesTemp[${i}].partido=this.value">
     <input placeholder="Mercado / Opción" oninput="opcionesTemp[${i}].mercado=this.value">
-    <input 
-  type="number" 
-  step="0.01" 
-  placeholder="Cuota" 
-  oninput="opcionesTemp[${i}].cuota = parseFloat(this.value) || 1"
+   <input
+  type="number"
+  step="0.01"
+  placeholder="Cuota"
+  oninput="opcionesTemp[${i}].cuota=this.value; recalcularCuotaTotal()"
 />
+
 
     <select onchange="opcionesTemp[${i}].estado=this.value">
       <option>Pendiente</option>
@@ -372,6 +374,15 @@ if (a.tipo === "Combinada") {
       </div>
     `;
   }
+}
+if (a.tipo === "Combinada") {
+  const cuotaReal = calcularCuotaTotalReal(a);
+
+  html += `
+    <div style="margin-top:8px;font-weight:600">
+      📐 Cuota total real: <b>${cuotaReal}</b>
+    </div>
+  `;
 }
 
       html += `</details>`;
@@ -658,6 +669,41 @@ function calcularPerdidaPorCuota(apuesta) {
     porcentaje: porcentaje.toFixed(2)
   };
 }
+function calcularCuotaTotalReal(apuesta) {
+  if (!apuesta.opciones || apuesta.opciones.length === 0) return 0;
+
+  let cuotaTotal = 1;
+
+  apuesta.opciones.forEach(o => {
+    const cuota = parseFloat(o.cuota);
+    if (cuota && cuota > 1) {
+      cuotaTotal *= cuota;
+    }
+  });
+
+  return cuotaTotal.toFixed(2);
+}
+window.recalcularCuotaTotal = function () {
+  const tipo = document.getElementById("tipo").value;
+
+  // solo combinadas
+  if (tipo !== "Combinada") return;
+
+  let cuotaTotal = 1;
+  let hayCuotas = false;
+
+  opcionesTemp.forEach(o => {
+    const cuota = parseFloat(o.cuota);
+    if (cuota && cuota > 1) {
+      cuotaTotal *= cuota;
+      hayCuotas = true;
+    }
+  });
+
+  if (hayCuotas) {
+    document.getElementById("cuota").value = cuotaTotal.toFixed(2);
+  }
+};
 
 
 
