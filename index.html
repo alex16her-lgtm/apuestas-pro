@@ -377,36 +377,74 @@ window.actualizarOpcion = async function (apuestaId, index, estado) {
 /* =========================
    BANCA POR PERSONA (LOCAL)
 ========================= */
-window.guardarBanca = function () {
-  const persona = document.getElementById('filtroPersona').value;
-  const banca = Number(document.getElementById('bancaInicial').value);
-  const bancas = JSON.parse(localStorage.getItem('bancas')) || {};
-  bancas[persona] = banca;
-  localStorage.setItem('bancas', JSON.stringify(bancas));
+window.guardarBanca = async function () {
+  const persona = document.getElementById("filtroPersona").value;
+  const banca = Number(document.getElementById("bancaInicial").value);
+
+  if (!banca || banca <= 0) {
+    alert("Ingresa una banca válida");
+    return;
+  }
+
+  const snap = await getDocs(collection(db, "bancas"));
+  let existe = false;
+
+  snap.forEach(async d => {
+    if (d.data().persona === persona) {
+      existe = true;
+      await updateDoc(doc(db, "bancas", d.id), {
+        bancaInicial: banca,
+        fecha: new Date().toLocaleDateString()
+      });
+    }
+  });
+
+  if (!existe) {
+    await addDoc(collection(db, "bancas"), {
+      persona,
+      bancaInicial: banca,
+      fecha: new Date().toLocaleDateString()
+    });
+  }
+
   calcularBanca();
 };
 
-window.calcularBanca = function () {
-  const persona = document.getElementById('filtroPersona').value;
-  const bancas = JSON.parse(localStorage.getItem('bancas')) || {};
-  let banca = bancas[persona] || 0;
 
-  getDocs(collection(db, "apuestas")).then(snap => {
-    snap.forEach(d => {
-      const a = d.data();
-      if (a.responsable !== persona) return;
-      if (a.opciones.some(o => o.estado === 'Pendiente')) return;
+window.calcularBanca = async function () {
+  const persona = document.getElementById("filtroPersona").value;
 
-      if (a.opciones.some(o => o.estado === 'Perdida')) {
-        banca -= a.stake;
-      } else {
-        banca += (a.stake * a.cuota) - a.stake;
-      }
-    });
+  let banca = 0;
 
-    document.getElementById('bancaActual').innerText = banca.toFixed(0);
+  // 1️⃣ Obtener banca inicial desde Firebase
+  const snapBanca = await getDocs(collection(db, "bancas"));
+  snapBanca.forEach(d => {
+    if (d.data().persona === persona) {
+      banca = d.data().bancaInicial;
+    }
   });
+
+  // 2️⃣ Aplicar apuestas
+  const snapApuestas = await getDocs(collection(db, "apuestas"));
+  snapApuestas.forEach(d => {
+    const a = d.data();
+    if (a.responsable !== persona) return;
+    if (a.opciones.some(o => o.estado === "Pendiente")) return;
+
+    if (a.opciones.some(o => o.estado === "Perdida")) {
+      banca -= a.stake;
+    } else {
+      banca += (a.stake * a.cuota) - a.stake;
+    }
+  });
+
+  document.getElementById("bancaActual").innerText = banca.toFixed(0);
+
+  // recalcula stake automático y rentabilidad
+  calcularStakeAutomatico();
+  calcularRentabilidad();
 };
+
 window.calcularRentabilidad = async function () {
   const persona = document.getElementById("filtroPersona").value;
 
