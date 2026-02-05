@@ -377,7 +377,7 @@ if (a.tipo === "Combinada") {
   }
 }
 if (a.tipo === "Combinada") {
-  const cuotaReal = calcularCuotaTotalReal(a);
+  const cuotaReal = calcularCuotaTotalReal(a.opciones).cuotaTotal;
 
   html += `
     <div style="margin-top:8px;font-weight:600">
@@ -677,17 +677,6 @@ function calcularPerdidaPorCuota(apuesta) {
     porcentaje: porcentaje.toFixed(2)
   };
 }
-function calcularCuotaTotalReal(apuesta) {
-  if (!apuesta.opciones || apuesta.opciones.length === 0) return 0;
-
-  let cuotaTotal = 1;
-
-  apuesta.opciones.forEach(o => {
-    const cuota = parseFloat(o.cuota);
-    if (cuota && cuota > 1) {
-      cuotaTotal *= cuota;
-    }
-  });
 
   return cuotaTotal.toFixed(2);
 }
