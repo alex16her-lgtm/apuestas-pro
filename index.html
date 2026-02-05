@@ -279,7 +279,8 @@ window.agregarOpcion = function () {
   mercado: '',
   cuota: 0,
   estado: 'Pendiente',
-  motivo: ''
+  motivo: '',
+  grupo: '' // 👈 NUEVO (opcional)
 });
 
 
@@ -381,7 +382,7 @@ if (a.tipo === "Combinada") {
     `;
   }
 }
-if (a.tipo === "Combinada") {
+if (a.tipo === "combinada") {
   const cuotaReal = calcularCuotaTotalReal(a.opciones).cuotaTotal;
 
   html += `
@@ -427,11 +428,8 @@ window.actualizarOpcion = async function (apuestaId, index, estado) {
   // 2️⃣ actualizar estado
   apuesta.opciones[index].estado = estado;
 
-  // 3️⃣ recalcular cuota si es combinada
-  if (apuesta.tipo === "Combinada") {
-    const res = calcularCuotaTotalReal(apuesta.opciones);
-    apuesta.cuota = Number(res.cuotaTotal);
-  }
+
+
 
   // 4️⃣ guardar TODO actualizado
   await updateDoc(ref, {
@@ -710,7 +708,7 @@ window.recalcularCuotaTotal = function () {
   const tipo = document.getElementById("tipo").value;
 
   // solo combinadas
-  if (tipo !== "Combinada") return;
+  if (tipo !== "combinada") return;
 
   let cuotaTotal = 1;
   let hayCuotas = false;
@@ -731,32 +729,42 @@ window.recalcularCuotaTotal = function () {
 
 
 function calcularCuotaTotalReal(opciones) {
-  const partidos = {};
+  const grupos = {};
 
   opciones.forEach(o => {
     const cuota = parseFloat(o.cuota);
     if (!cuota || cuota <= 1) return;
 
-    if (!partidos[o.partido]) {
-      partidos[o.partido] = 1;
+    if (!grupos[o.partido]) {
+      grupos[o.partido] = {
+        opciones: 1,
+        cuotaGrupo: cuota
+      };
+    } else {
+      grupos[o.partido].opciones += 1;
+      // NO multiplicamos, solo marcamos que es bet builder
     }
-    partidos[o.partido] *= cuota;
   });
 
   let cuotaTotal = 1;
-  Object.values(partidos).forEach(c => {
-    cuotaTotal *= c;
+
+  Object.values(grupos).forEach(g => {
+    cuotaTotal *= g.cuotaGrupo;
   });
 
-  return {
-    cuotaTotal: cuotaTotal.toFixed(2),
-    cuotaPorPartido: partidos
-  };
+  return cuotaTotal.toFixed(2);
 }
-  window.recalcularCuotaUI = function () {
-  const res = calcularCuotaTotalReal(opcionesTemp);
-  document.getElementById("cuota").value = res.cuotaTotal;
+
+window.recalcularCuotaUI = function () {
+  const tipo = document.getElementById("tipo").value;
+
+  if (tipo === "betbuilder") return; // 👈 CLAVE
+
+  const cuota = calcularCuotaTotalReal(opcionesTemp);
+  document.getElementById("cuota").value = cuota;
 };
+
+
   function calcularImpactoPorPartido(apuesta) {
   const partidos = {};
   let cuotaGlobal = 1;
