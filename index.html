@@ -204,8 +204,12 @@ summary {
 <div class="card">
   <label>Tipo</label>
  <select id="tipo" onchange="recalcularCuotaTotal()">
-    <option>Simple</option>
-    <option>Combinada</option>
+  <option value="simple">Simple</option>
+  <option value="combinada">Combinada (varios partidos)</option>
+  <option value="betbuilder">Bet Builder (mismo partido)</option>
+
+
+
   </select>
 
   <label>Dinero $</label>
@@ -307,15 +311,16 @@ window.agregarOpcion = function () {
    GUARDAR APUESTA (FIREBASE)
 ========================= */
 window.guardarApuesta = async function () {
-  const apuesta = {
-    fecha: new Date().toLocaleDateString(),
-    hora: new Date().toLocaleTimeString(),
-    responsable: document.getElementById('responsable').value,
-    tipo: document.getElementById('tipo').value,
-    stake: Number(document.getElementById('stake').value),
-    cuota: Number(document.getElementById('cuota').value),
-    opciones: opcionesTemp
-  };
+const apuesta = {
+  fecha: new Date().toLocaleDateString(),
+  hora: new Date().toLocaleTimeString(),
+  responsable: document.getElementById('responsable').value,
+  tipo: document.getElementById('tipo').value, // 👈 aquí Bet Builder
+  stake: Number(document.getElementById('stake').value),
+  cuota: Number(document.getElementById('cuota').value), // 👈 cuota final Betano
+  opciones: opcionesTemp
+};
+
 
   await addDoc(collection(db, "apuestas"), apuesta);
 
@@ -349,7 +354,7 @@ window.cargarHistorial = async function () {
 
     porFecha[fecha].forEach(a => {
       html += `<details style="margin-left:15px">
-        <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake}</summary>`;
+        <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake} | Cuota ${a.cuota}</summary>`;
 
       a.opciones.forEach((o, i) => {
         html += `
