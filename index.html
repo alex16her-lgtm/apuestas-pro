@@ -289,7 +289,7 @@ window.agregarOpcion = function () {
   type="number"
   step="0.01"
   placeholder="Cuota"
-  oninput="opcionesTemp[${i}].cuota=this.value; recalcularCuotaTotal()"
+  oninput="opcionesTemp[${i}].cuota=this.value; recalcularCuotaUI()"
 />
 
 
@@ -364,6 +364,7 @@ window.cargarHistorial = async function () {
             </select>
           </div>`;
       });
+      
 if (a.tipo === "Combinada") {
   const perdida = calcularPerdidaPorCuota(a);
 
@@ -383,6 +384,13 @@ if (a.tipo === "Combinada") {
       📐 Cuota total real: <b>${cuotaReal}</b>
     </div>
   `;
+  const impactos = calcularImpactoPorPartido(a);
+impactos.forEach(i => {
+  html += `<div class="lose">
+    ❌ ${i.partido} → impacto ${i.impacto}%
+  </div>`;
+});
+
 }
 
       html += `</details>`;
@@ -706,6 +714,67 @@ window.recalcularCuotaTotal = function () {
 };
 
 
+<script>
+function calcularCuotaTotalReal(opciones) {
+  const partidos = {};
+
+  opciones.forEach(o => {
+    const cuota = parseFloat(o.cuota);
+    if (!cuota || cuota <= 1) return;
+
+    if (!partidos[o.partido]) {
+      partidos[o.partido] = 1;
+    }
+    partidos[o.partido] *= cuota;
+  });
+
+  let cuotaTotal = 1;
+  Object.values(partidos).forEach(c => {
+    cuotaTotal *= c;
+  });
+
+  return {
+    cuotaTotal: cuotaTotal.toFixed(2),
+    cuotaPorPartido: partidos
+  };
+}
+  window.recalcularCuotaUI = function () {
+  const res = calcularCuotaTotalReal(opcionesTemp);
+  document.getElementById("cuota").value = res.cuotaTotal;
+};
+  function calcularImpactoPorPartido(apuesta) {
+  const partidos = {};
+  let cuotaGlobal = 1;
+
+  apuesta.opciones.forEach(o => {
+    const cuota = parseFloat(o.cuota);
+    if (!cuota || cuota <= 1) return;
+
+    if (!partidos[o.partido]) partidos[o.partido] = { cuota: 1, perdida: false };
+    partidos[o.partido].cuota *= cuota;
+
+    if (o.estado === "Perdida") partidos[o.partido].perdida = true;
+  });
+
+  Object.values(partidos).forEach(p => cuotaGlobal *= p.cuota);
+
+  const impactos = [];
+
+  Object.entries(partidos).forEach(([partido, data]) => {
+    if (!data.perdida) return;
+
+    const cuotaSinEse = cuotaGlobal / data.cuota;
+    const impacto = ((data.cuota - 1) / (cuotaGlobal - 1)) * 100;
+
+    impactos.push({
+      partido,
+      impacto: impacto.toFixed(2)
+    });
+  });
+
+  return impactos;
+}
+</script>
 
 
 </script>
