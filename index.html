@@ -406,18 +406,40 @@ impactos.forEach(i => {
 ========================= */
 window.actualizarOpcion = async function (apuestaId, index, estado) {
   const ref = doc(db, "apuestas", apuestaId);
-  const snap = await getDocs(collection(db, "apuestas"));
 
-  snap.forEach(async d => {
+  // 1️⃣ obtener SOLO la apuesta correcta
+  const snap = await getDocs(collection(db, "apuestas"));
+  let apuesta = null;
+
+  snap.forEach(d => {
     if (d.id === apuestaId) {
-      const data = d.data();
-      data.opciones[index].estado = estado;
-      await updateDoc(ref, { opciones: data.opciones });
-      calcularBanca();
-      calcularRentabilidad();
+      apuesta = d.data();
     }
   });
+
+  if (!apuesta) return;
+
+  // 2️⃣ actualizar estado
+  apuesta.opciones[index].estado = estado;
+
+  // 3️⃣ recalcular cuota si es combinada
+  if (apuesta.tipo === "Combinada") {
+    const res = calcularCuotaTotalReal(apuesta.opciones);
+    apuesta.cuota = Number(res.cuotaTotal);
+  }
+
+  // 4️⃣ guardar TODO actualizado
+  await updateDoc(ref, {
+    opciones: apuesta.opciones,
+    cuota: apuesta.cuota
+  });
+
+  // 5️⃣ refrescar TODO
+  await cargarHistorial();
+  await calcularBanca();
+  await calcularRentabilidad();
 };
+
 
 /* =========================
    BANCA POR PERSONA (LOCAL)
