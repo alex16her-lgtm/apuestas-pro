@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Análisis de Partidos</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f9fafb;
+      padding: 20px;
+    }
+    h2 { margin-top: 30px; }
+    input, select, button, textarea {
+      padding: 6px;
+      margin: 4px 0;
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .card {
+      background: white;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.05);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2,1fr);
+      gap: 10px;
+    }
+    .player {
+      background: #f3f4f6;
+      padding: 6px;
+      border-radius: 6px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>📊 Análisis de Partidos</h1>
+
+<!-- CREAR ANÁLISIS -->
+<div class="card">
+  <h2>Crear nuevo análisis</h2>
+  <input id="equipoA" placeholder="Equipo A">
+  <input id="equipoB" placeholder="Equipo B">
+  <button onclick="crearAnalisis()">Crear análisis</button>
+</div>
+
+<!-- PARTIDOS HISTÓRICOS -->
+<div class="card">
+  <h2>Agregar partido histórico</h2>
+
+  <div class="grid">
+    <input id="golesA" placeholder="Goles A" type="number">
+    <input id="golesB" placeholder="Goles B" type="number">
+
+    <input id="tirosA" placeholder="Tiros A" type="number">
+    <input id="tirosB" placeholder="Tiros B" type="number">
+
+    <input id="puertaA" placeholder="Tiros a puerta A" type="number">
+    <input id="puertaB" placeholder="Tiros a puerta B" type="number">
+
+    <input id="cornersA" placeholder="Corners A" type="number">
+    <input id="cornersB" placeholder="Corners B" type="number">
+
+    <input id="tarjetasA" placeholder="Tarjetas A" type="number">
+    <input id="tarjetasB" placeholder="Tarjetas B" type="number">
+  </div>
+
+  <button onclick="guardarPartido()">Guardar partido</button>
+</div>
+
+<!-- JUGADORES A SEGUIR -->
+<div class="card">
+  <h2>👤 Jugadores a seguir</h2>
+
+  <input id="jugadorNombre" placeholder="Nombre del jugador">
+  <input id="jugadorEquipo" placeholder="Equipo">
+  <input id="jugadorNota" placeholder="Motivo / mercado (goles, tiros, etc)">
+
+  <button onclick="agregarJugador()">Agregar jugador</button>
+
+  <div id="listaJugadores"></div>
+</div>
+
+<!-- PROMEDIOS -->
+<div class="card">
+  <h2>📈 Promedios</h2>
+  <div id="promedios"></div>
+</div>
+
+<script type="module">
+/* =========================
+   FIREBASE
+========================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
+  authDomain: "apuestas-analisis.firebaseapp.com",
+  projectId: "apuestas-analisis",
+  storageBucket: "apuestas-analisis.firebasestorage.app",
+  messagingSenderId: "542021066839",
+  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* =========================
+   ESTADO
+========================= */
+let analisis = {
+  id: null,
+  equipoA: "",
+  equipoB: "",
+  partidos: [],
+  jugadores: []
+};
+
+/* =========================
+   CREAR ANÁLISIS
+========================= */
+window.crearAnalisis = async function () {
+  if (!equipoA.value || !equipoB.value) {
+    alert("Completa ambos equipos");
+    return;
+  }
+
+  const ref = await addDoc(collection(db, "analisis_partidos"), {
+    equipoA: equipoA.value,
+    equipoB: equipoB.value,
+    partidos: [],
+    jugadores: [],
+    fecha: new Date()
+  });
+
+  analisis.id = ref.id;
+  analisis.equipoA = equipoA.value;
+  analisis.equipoB = equipoB.value;
+  analisis.partidos = [];
+  analisis.jugadores = [];
+
+  alert("Análisis creado ✅");
+};
+
+/* =========================
+   GUARDAR PARTIDO
+========================= */
+window.guardarPartido = async function () {
+  if (!analisis.id) return alert("Crea un análisis primero");
+
+  analisis.partidos.push({
+    golesA:+golesA.value, golesB:+golesB.value,
+    tirosA:+tirosA.value, tirosB:+tirosB.value,
+    puertaA:+puertaA.value, puertaB:+puertaB.value,
+    cornersA:+cornersA.value, cornersB:+cornersB.value,
+    tarjetasA:+tarjetasA.value, tarjetasB:+tarjetasB.value
+  });
+
+  await updateDoc(doc(db,"analisis_partidos",analisis.id), {
+    partidos: analisis.partidos
+  });
+
+  calcularPromedios();
+};
+
+/* =========================
+   JUGADORES
+========================= */
+window.agregarJugador = async function () {
+  if (!analisis.id) return alert("Crea un análisis primero");
+
+  analisis.jugadores.push({
+    nombre: jugadorNombre.value,
+    equipo: jugadorEquipo.value,
+    nota: jugadorNota.value
+  });
+
+  await updateDoc(doc(db,"analisis_partidos",analisis.id), {
+    jugadores: analisis.jugadores
+  });
+
+  renderJugadores();
+};
+
+function renderJugadores(){
+  listaJugadores.innerHTML = "";
+  analisis.jugadores.forEach(j=>{
+    listaJugadores.innerHTML += `
+      <div class="player">
+        <b>${j.nombre}</b> (${j.equipo})<br>
+        🎯 ${j.nota}
+      </div>`;
+  });
+}
+
+/* =========================
+   PROMEDIOS
+========================= */
+function calcularPromedios(){
+  const p = analisis.partidos;
+  if (!p.length) return;
+
+  const avg = campo =>
+    (p.reduce((s,x)=>s+(x[campo]||0),0)/p.length).toFixed(2);
+
+  promedios.innerHTML = `
+    ⚽ Goles A: ${avg("golesA")} | Goles B: ${avg("golesB")}<br>
+    🎯 Tiros A: ${avg("tirosA")} | Tiros B: ${avg("tirosB")}<br>
+    🥅 Puerta A: ${avg("puertaA")} | Puerta B: ${avg("puertaB")}<br>
+    🚩 Corners A: ${avg("cornersA")} | Corners B: ${avg("cornersB")}<br>
+    🟨 Tarjetas A: ${avg("tarjetasA")} | Tarjetas B: ${avg("tarjetasB")}
+  `;
+}
+</script>
+
+</body>
+</html>
