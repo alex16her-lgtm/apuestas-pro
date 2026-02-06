@@ -327,7 +327,9 @@ const apuesta = {
   tipo: document.getElementById('tipo').value, // 👈 aquí Bet Builder
   stake: Number(document.getElementById('stake').value),
   cuota: Number(document.getElementById('cuota').value), // 👈 cuota final Betano
-  opciones: opcionesTemp
+  opciones: opcionesTemp ,
+  observacion: '' // 👈 NUEVO
+
 };
 
 
@@ -363,7 +365,17 @@ window.cargarHistorial = async function () {
 
     porFecha[fecha].forEach(a => {
       html += `<details style="margin-left:15px">
-        <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake} | Cuota ${a.cuota}</summary>`;
+       <summary>
+  👤 ${a.responsable} | ${a.tipo} |
+  Stake:
+  <input
+    type="number"
+    value="${a.stake}"
+    style="width:90px"
+    onchange="actualizarStake('${a.id}', this.value)"
+  >
+  | Cuota ${a.cuota}
+</summary>`;
 
       a.opciones.forEach((o, i) => {
 
@@ -401,6 +413,15 @@ const badgeBetBuilder = esBetBuilder
       </select>
     </div>
   `;
+        html += `
+  <label style="font-size:12px;color:#6b7280">📝 Observación</label>
+  <textarea
+    style="width:100%;border-radius:8px;padding:6px"
+    placeholder="¿Por qué se perdió / comentario general?"
+    onchange="actualizarObservacion('${a.id}', this.value)"
+  >${a.observacion || ''}</textarea>
+`;
+
 });
 
       
@@ -820,7 +841,24 @@ window.recalcularCuotaUI = function () {
 
   return impactos;
 }
+window.actualizarStake = async function (apuestaId, nuevoStake) {
+  const ref = doc(db, "apuestas", apuestaId);
 
+  await updateDoc(ref, {
+    stake: Number(nuevoStake)
+  });
+
+  await calcularBanca();
+  await calcularRentabilidad();
+};
+
+window.actualizarObservacion = async function (apuestaId, texto) {
+  const ref = doc(db, "apuestas", apuestaId);
+
+  await updateDoc(ref, {
+    observacion: texto
+  });
+};
 
 </script>
 
