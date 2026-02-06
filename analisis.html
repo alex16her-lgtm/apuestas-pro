@@ -37,12 +37,77 @@
       font-size:13px;
       color:#6b7280;
     }
+    /* =========================
+   RESPONSIVE (CELULAR)
+========================= */
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  input, select, button {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  button {
+    padding: 10px;
+  }
+
+  .card {
+    padding: 10px;
+  }
+}
+
+/* =========================
+   MODO OSCURO
+========================= */
+body.dark {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+body.dark .card {
+  background: #020617;
+  box-shadow: none;
+}
+
+body.dark input,
+body.dark select {
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+}
+
+body.dark button {
+  background: #2563eb;
+}
+
+body.dark .small {
+  color: #94a3b8;
+}
+
   </style>
 </head>
 
 <body>
 
 <h1>📊 Análisis de Partidos</h1>
+<button id="toggleTheme" style="margin-bottom:15px">
+  🌙 Modo oscuro
+</button>
 
 <!-- =========================
      CREAR PARTIDO
@@ -251,6 +316,23 @@ function render() {
     ).join("<br>")}
   `;
 }
+  /* =========================
+   MODO OSCURO
+========================= */
+const btnTheme = document.getElementById("toggleTheme");
+
+if (localStorage.getItem("theme") === "dark") {
+  document.body.classList.add("dark");
+  btnTheme.textContent = "☀️ Modo claro";
+}
+
+btnTheme.addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+  const dark = document.body.classList.contains("dark");
+  localStorage.setItem("theme", dark ? "dark" : "light");
+  btnTheme.textContent = dark ? "☀️ Modo claro" : "🌙 Modo oscuro";
+});
+
 </script>
 
 </body>
