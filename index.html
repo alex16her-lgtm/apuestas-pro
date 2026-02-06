@@ -962,14 +962,23 @@ window.actualizarMercadoBetBuilder = async function (
   nuevoEstado
 ) {
   const ref = doc(db, "apuestas", apuestaId);
-  const snap = await getDoc(ref);
 
-  if (!snap.exists()) return;
+  // obtener apuesta
+  const snap = await getDocs(collection(db, "apuestas"));
+  let apuesta = null;
 
-  const data = snap.data();
-  const opcion = data.opciones[opcionIndex];
+  snap.forEach(d => {
+    if (d.id === apuestaId) {
+      apuesta = d.data();
+    }
+  });
 
-  if (!opcion.mercadosDetalle) {
+  if (!apuesta) return;
+
+  const opcion = apuesta.opciones[opcionIndex];
+
+  // asegurar estructura
+  if (!Array.isArray(opcion.mercadosDetalle)) {
     opcion.mercadosDetalle = opcion.mercado
       .split('+')
       .map(m => ({
@@ -978,16 +987,29 @@ window.actualizarMercadoBetBuilder = async function (
       }));
   }
 
+  // actualizar SOLO ese mercado
   opcion.mercadosDetalle[mercadoIndex].estado = nuevoEstado;
 
-  // si algún mercado se pierde → la opción completa es Perdida
+  // actualizar estado general de la opción
   if (opcion.mercadosDetalle.some(m => m.estado === 'Perdida')) {
     opcion.estado = 'Perdida';
+  } else if (opcion.mercadosDetalle.every(m => m.estado === 'Ganada')) {
+    opcion.estado = 'Ganada';
+  } else {
+    opcion.estado = 'Pendiente';
   }
 
-  await updateDoc(ref, { opciones: data.opciones });
-  cargarHistorial();
+  // guardar en Firebase
+  await updateDoc(ref, {
+    opciones: apuesta.opciones
+  });
+
+  // refrescar UI
+  await cargarHistorial();
+  await calcularBanca();
+  await calcularRentabilidad();
 };
+
 
 
 </script>
