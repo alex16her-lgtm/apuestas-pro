@@ -399,14 +399,19 @@ html += `
       a.opciones.forEach((o, i) => {
 
   // separar mercados tipo Bet Builder
- const mercados = o.mercadosDetalle
-  ? o.mercadosDetalle
-  : o.mercado
-      ? o.mercado.split('+').map(m => ({
-          nombre: m.trim(),
-          estado: o.estado || 'Pendiente'
-        }))
-      : [];
+ let mercados = [];
+
+if (Array.isArray(o.mercadosDetalle)) {
+  // ya existe Bet Builder con estados individuales
+  mercados = o.mercadosDetalle;
+} else if (o.mercado) {
+  // apuesta antigua → solo se convierte UNA VEZ
+  mercados = o.mercado.split('+').map(m => ({
+    nombre: m.trim(),
+    estado: 'Pendiente'
+  }));
+}
+
 
 
  let mercadosHTML = '';
