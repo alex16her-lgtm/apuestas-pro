@@ -198,7 +198,14 @@ ref.onSnapshot(snapshot => {
 
   snapshot.forEach(doc => {
     const m = doc.data();
-    const s = m.stats;
+    const s = {
+  tt: m.stats?.tt || { A: 0, B: 0 },
+  tap: m.stats?.tap || { A: 0, B: 0 },
+  cor: m.stats?.cor || { A: 0, B: 0 },
+  tar: m.stats?.tar || { A: 0, B: 0 },
+  gol: m.stats?.gol || { A: 0, B: 0 }
+};
+
 
     const tot = {
       tt: s.tt.A + s.tt.B,
