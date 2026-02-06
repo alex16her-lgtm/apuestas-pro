@@ -271,9 +271,14 @@ ref.onSnapshot(snapshot => {
           </tr>
 
           <tr>
-            <th colspan="2">PROBABILIDAD</th>
-            <th colspan="5">${tot.gol > 0 ? "Alta" : "Baja"}</th>
-          </tr>
+  <td colspan="2"><b>PROBABILIDAD</b></td>
+  <td>${overUnder(tot.tt,20)}</td>
+  <td>${overUnder(tot.tap,8)}</td>
+  <td>${overUnder(tot.cor,9)}</td>
+  <td>${overUnder(tot.tar,4)}</td>
+  <td>${overUnder(tot.gol,2.5)}</td>
+</tr>
+
         </tfoot>
       </table>
     </details>`;
