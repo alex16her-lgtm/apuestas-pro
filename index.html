@@ -287,7 +287,11 @@ opcionesTemp.push({
   div.className = 'option';
   div.innerHTML = `
     <input placeholder="Partido" oninput="opcionesTemp[${i}].partido=this.value">
-    <input placeholder="Mercado / Opción" oninput="opcionesTemp[${i}].mercado=this.value">
+   <input
+  placeholder="Mercado / Opción (usa + para Bet Builder)"
+  oninput="opcionesTemp[${i}].mercado=this.value"
+/>
+
 <input
   type="number"
   step="0.01"
