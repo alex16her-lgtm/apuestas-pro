@@ -6,40 +6,36 @@
   <style>
     body {
       font-family: system-ui, sans-serif;
-      background: #f9fafb;
-      padding: 20px;
+      background:#f9fafb;
+      padding:20px;
     }
-    h2 { margin-top: 30px; }
-    input, select, button, textarea {
-      padding: 6px;
-      margin: 4px 0;
-      width: 100%;
-      border-radius: 6px;
-      border: 1px solid #d1d5db;
+    h2 { margin-top:30px }
+    input, select, button {
+      padding:6px;
+      margin:4px 0;
+      border-radius:6px;
+      border:1px solid #d1d5db;
     }
     button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      cursor: pointer;
+      background:#2563eb;
+      color:white;
+      cursor:pointer;
     }
     .card {
-      background: white;
-      padding: 12px;
-      border-radius: 10px;
-      margin-top: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.05);
+      background:white;
+      padding:12px;
+      border-radius:10px;
+      margin-top:10px;
+      box-shadow:0 1px 4px rgba(0,0,0,.08);
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2,1fr);
-      gap: 10px;
+    .row {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
     }
-    .player {
-      background: #f3f4f6;
-      padding: 6px;
-      border-radius: 6px;
-      margin-top: 4px;
+    .small {
+      font-size:13px;
+      color:#6b7280;
     }
   </style>
 </head>
@@ -48,57 +44,64 @@
 
 <h1>📊 Análisis de Partidos</h1>
 
-<!-- CREAR ANÁLISIS -->
+<!-- =========================
+     CREAR PARTIDO
+========================= -->
 <div class="card">
-  <h2>Crear nuevo análisis</h2>
-  <input id="equipoA" placeholder="Equipo A">
-  <input id="equipoB" placeholder="Equipo B">
-  <button onclick="crearAnalisis()">Crear análisis</button>
+  <h2>➕ Nuevo Partido</h2>
+  <input id="partidoNombre" placeholder="Ej: Real Madrid vs Barcelona" />
+  <button onclick="crearPartido()">Crear / Cargar</button>
 </div>
 
-<!-- PARTIDOS HISTÓRICOS -->
+<!-- =========================
+     ENFRENTAMIENTOS
+========================= -->
 <div class="card">
-  <h2>Agregar partido histórico</h2>
+  <h2>⚽ Enfrentamientos previos</h2>
 
-  <div class="grid">
-    <input id="golesA" placeholder="Goles A" type="number">
-    <input id="golesB" placeholder="Goles B" type="number">
+  <div class="row">
+    <input id="golesA" placeholder="Goles Equipo A" type="number" />
+    <input id="golesB" placeholder="Goles Equipo B" type="number" />
 
-    <input id="tirosA" placeholder="Tiros A" type="number">
-    <input id="tirosB" placeholder="Tiros B" type="number">
+    <input id="tirosA" placeholder="Tiros Equipo A" type="number" />
+    <input id="tirosB" placeholder="Tiros Equipo B" type="number" />
 
-    <input id="puertaA" placeholder="Tiros a puerta A" type="number">
-    <input id="puertaB" placeholder="Tiros a puerta B" type="number">
+    <input id="tirosPuertaA" placeholder="Tiros a puerta A" type="number" />
+    <input id="tirosPuertaB" placeholder="Tiros a puerta B" type="number" />
 
-    <input id="cornersA" placeholder="Corners A" type="number">
-    <input id="cornersB" placeholder="Corners B" type="number">
+    <input id="cornersA" placeholder="Corners A" type="number" />
+    <input id="cornersB" placeholder="Corners B" type="number" />
 
-    <input id="tarjetasA" placeholder="Tarjetas A" type="number">
-    <input id="tarjetasB" placeholder="Tarjetas B" type="number">
+    <input id="tarjetasA" placeholder="Tarjetas A" type="number" />
+    <input id="tarjetasB" placeholder="Tarjetas B" type="number" />
   </div>
 
-  <button onclick="guardarPartido()">Guardar partido</button>
+  <button onclick="agregarEnfrentamiento()">Agregar enfrentamiento</button>
 </div>
 
-<!-- JUGADORES A SEGUIR -->
+<!-- =========================
+     JUGADORES A SEGUIR
+========================= -->
 <div class="card">
   <h2>👤 Jugadores a seguir</h2>
-
-  <input id="jugadorNombre" placeholder="Nombre del jugador">
-  <input id="jugadorEquipo" placeholder="Equipo">
-  <input id="jugadorNota" placeholder="Motivo / mercado (goles, tiros, etc)">
-
+  <input id="jugadorNombre" placeholder="Jugador" />
+  <input id="jugadorEquipo" placeholder="Equipo" />
+  <input id="jugadorMercado" placeholder="Mercado (Gol, tiros, etc)" />
+  <input id="jugadorPromedio" placeholder="Promedio" type="number" step="0.01" />
   <button onclick="agregarJugador()">Agregar jugador</button>
-
-  <div id="listaJugadores"></div>
 </div>
 
-<!-- PROMEDIOS -->
+<!-- =========================
+     RESULTADOS
+========================= -->
 <div class="card">
-  <h2>📈 Promedios</h2>
-  <div id="promedios"></div>
+  <h2>📈 Resultados</h2>
+  <div id="resultados"></div>
 </div>
 
+<!-- =========================
+     FIREBASE + JS
+========================= -->
 <script type="module">
 /* =========================
    FIREBASE
@@ -106,11 +109,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  doc
+  doc,
+  setDoc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -128,107 +129,126 @@ const db = getFirestore(app);
 /* =========================
    ESTADO
 ========================= */
-let analisis = {
-  id: null,
-  equipoA: "",
-  equipoB: "",
-  partidos: [],
+let partidoId = null;
+let data = {
+  partido: "",
+  enfrentamientos: [],
   jugadores: []
 };
 
 /* =========================
-   CREAR ANÁLISIS
+   CREAR / CARGAR
 ========================= */
-window.crearAnalisis = async function () {
-  if (!equipoA.value || !equipoB.value) {
-    alert("Completa ambos equipos");
-    return;
+window.crearPartido = async function () {
+  const nombre = document.getElementById("partidoNombre").value.trim();
+  if (!nombre) return alert("Ingresa un partido");
+
+  partidoId = nombre.toLowerCase().replace(/\s+/g, "_");
+
+  const ref = doc(db, "analisis_partidos", partidoId);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    data = snap.data();
+  } else {
+    data.partido = nombre;
+    await setDoc(ref, data);
   }
 
-  const ref = await addDoc(collection(db, "analisis_partidos"), {
-    equipoA: equipoA.value,
-    equipoB: equipoB.value,
-    partidos: [],
-    jugadores: [],
-    fecha: new Date()
-  });
-
-  analisis.id = ref.id;
-  analisis.equipoA = equipoA.value;
-  analisis.equipoB = equipoB.value;
-  analisis.partidos = [];
-  analisis.jugadores = [];
-
-  alert("Análisis creado ✅");
+  render();
 };
 
 /* =========================
-   GUARDAR PARTIDO
+   AGREGAR ENFRENTAMIENTO
 ========================= */
-window.guardarPartido = async function () {
-  if (!analisis.id) return alert("Crea un análisis primero");
+window.agregarEnfrentamiento = async function () {
+  if (!partidoId) return alert("Crea o carga un partido");
 
-  analisis.partidos.push({
-    golesA:+golesA.value, golesB:+golesB.value,
-    tirosA:+tirosA.value, tirosB:+tirosB.value,
-    puertaA:+puertaA.value, puertaB:+puertaB.value,
-    cornersA:+cornersA.value, cornersB:+cornersB.value,
-    tarjetasA:+tarjetasA.value, tarjetasB:+tarjetasB.value
+  data.enfrentamientos.push({
+    golesA: +golesA.value,
+    golesB: +golesB.value,
+    tirosA: +tirosA.value,
+    tirosB: +tirosB.value,
+    tirosPuertaA: +tirosPuertaA.value,
+    tirosPuertaB: +tirosPuertaB.value,
+    cornersA: +cornersA.value,
+    cornersB: +cornersB.value,
+    tarjetasA: +tarjetasA.value,
+    tarjetasB: +tarjetasB.value
   });
 
-  await updateDoc(doc(db,"analisis_partidos",analisis.id), {
-    partidos: analisis.partidos
-  });
-
-  calcularPromedios();
+  await guardar();
 };
 
 /* =========================
-   JUGADORES
+   AGREGAR JUGADOR
 ========================= */
 window.agregarJugador = async function () {
-  if (!analisis.id) return alert("Crea un análisis primero");
+  if (!partidoId) return;
 
-  analisis.jugadores.push({
+  data.jugadores.push({
     nombre: jugadorNombre.value,
     equipo: jugadorEquipo.value,
-    nota: jugadorNota.value
+    mercado: jugadorMercado.value,
+    promedio: jugadorPromedio.value
   });
 
-  await updateDoc(doc(db,"analisis_partidos",analisis.id), {
-    jugadores: analisis.jugadores
-  });
-
-  renderJugadores();
+  await guardar();
 };
 
-function renderJugadores(){
-  listaJugadores.innerHTML = "";
-  analisis.jugadores.forEach(j=>{
-    listaJugadores.innerHTML += `
-      <div class="player">
-        <b>${j.nombre}</b> (${j.equipo})<br>
-        🎯 ${j.nota}
-      </div>`;
-  });
+/* =========================
+   GUARDAR
+========================= */
+async function guardar() {
+  await setDoc(doc(db, "analisis_partidos", partidoId), data);
+  render();
 }
 
 /* =========================
-   PROMEDIOS
+   CALCULOS
 ========================= */
-function calcularPromedios(){
-  const p = analisis.partidos;
-  if (!p.length) return;
+function promedio(campoA, campoB) {
+  if (!data.enfrentamientos.length) return 0;
+  let total = 0;
+  data.enfrentamientos.forEach(e => {
+    total += e[campoA] + e[campoB];
+  });
+  return (total / data.enfrentamientos.length).toFixed(2);
+}
 
-  const avg = campo =>
-    (p.reduce((s,x)=>s+(x[campo]||0),0)/p.length).toFixed(2);
+function probabilidadMasDeGoles(min) {
+  if (!data.enfrentamientos.length) return 0;
+  const ok = data.enfrentamientos.filter(e =>
+    e.golesA + e.golesB > min
+  ).length;
+  return Math.round((ok / data.enfrentamientos.length) * 100);
+}
 
-  promedios.innerHTML = `
-    ⚽ Goles A: ${avg("golesA")} | Goles B: ${avg("golesB")}<br>
-    🎯 Tiros A: ${avg("tirosA")} | Tiros B: ${avg("tirosB")}<br>
-    🥅 Puerta A: ${avg("puertaA")} | Puerta B: ${avg("puertaB")}<br>
-    🚩 Corners A: ${avg("cornersA")} | Corners B: ${avg("cornersB")}<br>
-    🟨 Tarjetas A: ${avg("tarjetasA")} | Tarjetas B: ${avg("tarjetasB")}
+/* =========================
+   RENDER
+========================= */
+function render() {
+  const r = document.getElementById("resultados");
+
+  r.innerHTML = `
+    <b>${data.partido}</b><br><br>
+
+    📊 Promedios:<br>
+    • Goles: ${promedio("golesA","golesB")}<br>
+    • Tiros: ${promedio("tirosA","tirosB")}<br>
+    • Tiros a puerta: ${promedio("tirosPuertaA","tirosPuertaB")}<br>
+    • Corners: ${promedio("cornersA","cornersB")}<br>
+    • Tarjetas: ${promedio("tarjetasA","tarjetasB")}<br><br>
+
+    🎯 Probabilidades:<br>
+    • +0.5 goles: ${probabilidadMasDeGoles(0.5)}%<br>
+    • +1.5 goles: ${probabilidadMasDeGoles(1.5)}%<br>
+    • +2.5 goles: ${probabilidadMasDeGoles(2.5)}%<br><br>
+
+    👤 Jugadores a seguir:<br>
+    ${data.jugadores.map(j =>
+      `• ${j.nombre} (${j.equipo}) → ${j.mercado} (${j.promedio})`
+    ).join("<br>")}
   `;
 }
 </script>
