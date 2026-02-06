@@ -178,17 +178,33 @@ function render(){
   tb.innerHTML="";
   let t=[0,0,0,0,0];
 
-  data.forEach(m=>{
-    tb.innerHTML+=`
-    <tr>
-      <td>${m.equipoA} vs ${m.equipoB}</td>
-      <td>${m.competencia}</td>
-      <td>${m.stats.tt.A}|${m.stats.tt.B}</td>
-      <td>${m.stats.tap.A}|${m.stats.tap.B}</td>
-      <td>${m.stats.cor.A}|${m.stats.cor.B}</td>
-      <td>${m.stats.tar.A}|${m.stats.tar.B}</td>
-      <td>${m.stats.gol.A}|${m.stats.gol.B}</td>
-    </tr>`;
+data.forEach(m=>{
+  const s = m.stats || {
+    tt:{A:0,B:0},
+    tap:{A:0,B:0},
+    cor:{A:0,B:0},
+    tar:{A:0,B:0},
+    gol:{A:0,B:0}
+  };
+
+  tb.innerHTML+=`
+  <tr>
+    <td>${m.equipoA || "—"} vs ${m.equipoB || "—"}</td>
+    <td>${m.competencia || "—"}</td>
+    <td>${s.tt.A}|${s.tt.B}</td>
+    <td>${s.tap.A}|${s.tap.B}</td>
+    <td>${s.cor.A}|${s.cor.B}</td>
+    <td>${s.tar.A}|${s.tar.B}</td>
+    <td>${s.gol.A}|${s.gol.B}</td>
+  </tr>`;
+
+  t[0]+=s.tt.A+s.tt.B;
+  t[1]+=s.tap.A+s.tap.B;
+  t[2]+=s.cor.A+s.cor.B;
+  t[3]+=s.tar.A+s.tar.B;
+  t[4]+=s.gol.A+s.gol.B;
+});
+
 
     t[0]+=m.stats.tt.A+m.stats.tt.B;
     t[1]+=m.stats.tap.A+m.stats.tap.B;
