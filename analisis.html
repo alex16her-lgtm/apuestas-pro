@@ -192,71 +192,71 @@ async function addMatch() {
     });
   }
 }
-ref.onSnapshot(snap => {
-  const historial = document.getElementById("historial");
-  historial.innerHTML = "";
+ref.onSnapshot(snapshot => {
+  const h = document.getElementById("historial");
+  h.innerHTML = "";
 
-  snap.forEach(doc => {
-    const d = doc.data();
-    const e = d.encuentros || [];
+  snapshot.forEach(doc => {
+    const m = doc.data();
+    const s = m.stats;
 
-    let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-
-    e.forEach(x => {
-      tot.tt += x.stats.tt.A + x.stats.tt.B;
-      tot.tap += x.stats.tap.A + x.stats.tap.B;
-      tot.cor += x.stats.cor.A + x.stats.cor.B;
-      tot.tar += x.stats.tar.A + x.stats.tar.B;
-      tot.gol += x.stats.gol.A + x.stats.gol.B;
-    });
-
-    const n = e.length || 1;
-
-    const prom = {
-      tt:(tot.tt/n).toFixed(1),
-      tap:(tot.tap/n).toFixed(1),
-      cor:(tot.cor/n).toFixed(1),
-      tar:(tot.tar/n).toFixed(1),
-      gol:(tot.gol/n).toFixed(1)
+    const tot = {
+      tt: s.tt.A + s.tt.B,
+      tap: s.tap.A + s.tap.B,
+      cor: s.cor.A + s.cor.B,
+      tar: s.tar.A + s.tar.B,
+      gol: s.gol.A + s.gol.B
     };
 
-    const prob = {
-      gol: ((e.filter(x => (x.stats.gol.A + x.stats.gol.B) > 0).length / n) * 100).toFixed(1) + "%"
-    };
-
-    historial.innerHTML += `
+    h.innerHTML += `
     <details class="card">
-      <summary>⚽ ${d.equipoA} vs ${d.equipoB}</summary>
+      <summary>⚽ ${m.equipoA} vs ${m.equipoB}</summary>
 
-      ${e.map(x=>`
-        <div class="small">
-          ${x.competencia} |
-          TT ${x.stats.tt.A}-${x.stats.tt.B} |
-          AP ${x.stats.tap.A}-${x.stats.tap.B} |
-          COR ${x.stats.cor.A}-${x.stats.cor.B} |
-          TAR ${x.stats.tar.A}-${x.stats.tar.B} |
-          GOL ${x.stats.gol.A}-${x.stats.gol.B}
-        </div>
-      `).join("")}
-
-      <table class="tabla-analisis">
+      <table class="tabla">
         <thead>
           <tr>
-            <th>Partido</th><th>Competencia</th>
-            <th>TT</th><th>AP</th><th>COR</th><th>TAR</th><th>GOL</th>
+            <th>Partido</th>
+            <th>Competencia</th>
+            <th>TT (A|B)</th>
+            <th>AP (A|B)</th>
+            <th>COR (A|B)</th>
+            <th>TAR (A|B)</th>
+            <th>GOL (A|B)</th>
           </tr>
         </thead>
+
         <tbody>
-          <tr><td colspan="2"><b>TOTAL</b></td>
-            <td>${tot.tt}</td><td>${tot.tap}</td>
-            <td>${tot.cor}</td><td>${tot.tar}</td><td>${tot.gol}</td>
+          <tr>
+            <td>${m.equipoA} vs ${m.equipoB}</td>
+            <td>${m.competencia}</td>
+            <td>${s.tt.A}|${s.tt.B}</td>
+            <td>${s.tap.A}|${s.tap.B}</td>
+            <td>${s.cor.A}|${s.cor.B}</td>
+            <td>${s.tar.A}|${s.tar.B}</td>
+            <td>${s.gol.A}|${s.gol.B}</td>
           </tr>
-          <tr><td colspan="2"><b>PROMEDIO</b></td>
-            <td>${prom.tt}</td><td>${prom.tap}</td>
-            <td>${prom.cor}</td><td>${prom.tar}</td><td>${prom.gol}</td>
+
+          <tr>
+            <td colspan="2"><b>TOTAL</b></td>
+            <td>${tot.tt}</td>
+            <td>${tot.tap}</td>
+            <td>${tot.cor}</td>
+            <td>${tot.tar}</td>
+            <td>${tot.gol}</td>
           </tr>
-          <tr><td colspan="2"><b>PROBABILIDAD GOL</b></td>
-            <td colspan="5">${prob.gol}</td>
+
+          <tr>
+            <td colspan="2"><b>PROMEDIO</b></td>
+            <td>${tot.tt.toFixed(1)}</td>
+            <td>${tot.tap.toFixed(1)}</td>
+            <td>${tot.cor.toFixed(1)}</td>
+            <td>${tot.tar.toFixed(1)}</td>
+            <td>${tot.gol.toFixed(1)}</td>
+          </tr>
+
+          <tr>
+            <td colspan="2"><b>PROBABILIDAD</b></td>
+            <td colspan="5">${tot.gol > 0 ? "100%" : "0%"}</td>
           </tr>
         </tbody>
       </table>
