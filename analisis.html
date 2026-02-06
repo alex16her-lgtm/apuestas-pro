@@ -192,20 +192,19 @@ async function addMatch() {
     });
   }
 }
-  ref.onSnapshot(snap=>{
-  const cont = document.getElementById("historial");
-    if (!cont) return;
-  cont.innerHTML = "";
+ref.onSnapshot(snap => {
+  const historial = document.getElementById("historial");
+  historial.innerHTML = "";
 
-  snap.forEach(doc=>{
-    const a = doc.data();
-    const enc = a.encuentros || [];
+  snap.forEach(doc => {
+    const data = doc.data();
+    const encuentros = data.encuentros || [];
 
     let tot = {
       tt:[0,0], tap:[0,0], cor:[0,0], tar:[0,0], gol:[0,0]
     };
 
-    enc.forEach(e=>{
+    encuentros.forEach(e => {
       tot.tt[0]+=e.stats.tt.A; tot.tt[1]+=e.stats.tt.B;
       tot.tap[0]+=e.stats.tap.A; tot.tap[1]+=e.stats.tap.B;
       tot.cor[0]+=e.stats.cor.A; tot.cor[1]+=e.stats.cor.B;
@@ -213,28 +212,27 @@ async function addMatch() {
       tot.gol[0]+=e.stats.gol.A; tot.gol[1]+=e.stats.gol.B;
     });
 
-    const n = enc.length || 1;
+    const n = encuentros.length || 1;
 
-    cont.innerHTML += `
+    historial.innerHTML += `
       <details class="card">
-        <summary>⚽ ${a.equipoA} vs ${a.equipoB}</summary>
+        <summary>⚽ ${data.equipoA} vs ${data.equipoB}</summary>
 
-        ${enc.map(e=>`
-          <div class="fila">
-            <b>${e.competencia}</b><br>
-            Tiros ${e.stats.tt.A}-${e.stats.tt.B} |
-            Goles ${e.stats.gol.A}-${e.stats.gol.B}
+        ${encuentros.map(e => `
+          <div class="small">
+            <b>${e.competencia}</b> |
+            TT ${e.stats.tt.A}-${e.stats.tt.B} |
+            AP ${e.stats.tap.A}-${e.stats.tap.B} |
+            COR ${e.stats.cor.A}-${e.stats.cor.B} |
+            TAR ${e.stats.tar.A}-${e.stats.tar.B} |
+            GOL ${e.stats.gol.A}-${e.stats.gol.B}
           </div>
         `).join("")}
 
         <hr>
-        <b>Totales</b><br>
-        Tiros ${tot.tt[0]}-${tot.tt[1]} |
-        Goles ${tot.gol[0]}-${tot.gol[1]}
-
-        <br><b>Promedios</b><br>
-        Tiros ${(tot.tt[0]/n).toFixed(1)}-${(tot.tt[1]/n).toFixed(1)} |
-        Goles ${(tot.gol[0]/n).toFixed(1)}-${(tot.gol[1]/n).toFixed(1)}
+        <b>Promedios</b><br>
+        TT ${(tot.tt[0]/n).toFixed(1)}-${(tot.tt[1]/n).toFixed(1)} |
+        GOL ${(tot.gol[0]/n).toFixed(1)}-${(tot.gol[1]/n).toFixed(1)}
       </details>
     `;
   });
