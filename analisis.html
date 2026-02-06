@@ -1,339 +1,202 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Análisis de Partidos</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background:#f9fafb;
-      padding:20px;
-    }
-    h2 { margin-top:30px }
-    input, select, button {
-      padding:6px;
-      margin:4px 0;
-      border-radius:6px;
-      border:1px solid #d1d5db;
-    }
-    button {
-      background:#2563eb;
-      color:white;
-      cursor:pointer;
-    }
-    .card {
-      background:white;
-      padding:12px;
-      border-radius:10px;
-      margin-top:10px;
-      box-shadow:0 1px 4px rgba(0,0,0,.08);
-    }
-    .row {
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-    .small {
-      font-size:13px;
-      color:#6b7280;
-    }
-    /* =========================
-   RESPONSIVE (CELULAR)
-========================= */
-@media (max-width: 768px) {
-  body {
-    padding: 12px;
-  }
+<meta charset="UTF-8">
+<title>Análisis de Partidos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  h1 {
-    font-size: 20px;
-  }
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  h2 {
-    font-size: 16px;
-  }
-
-  .row {
-    grid-template-columns: 1fr;
-  }
-
-  input, select, button {
-    width: 100%;
-    font-size: 14px;
-  }
-
-  button {
-    padding: 10px;
-  }
-
-  .card {
-    padding: 10px;
-  }
+<style>
+:root{
+  --bg:#0f172a;
+  --card:#020617;
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --border:#1e293b;
+  --accent:#22c55e;
+  --danger:#ef4444;
 }
 
-/* =========================
-   MODO OSCURO
-========================= */
-body.dark {
-  background: #0f172a;
-  color: #e5e7eb;
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui;
 }
 
-body.dark .card {
-  background: #020617;
-  box-shadow: none;
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:16px;
 }
 
-body.dark input,
-body.dark select {
-  background: #020617;
-  color: #e5e7eb;
-  border: 1px solid #334155;
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
 }
 
-body.dark button {
-  background: #2563eb;
+input,button{
+  background:#020617;
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px;
+  width:100%;
 }
 
-body.dark .small {
-  color: #94a3b8;
+button{
+  background:var(--accent);
+  color:#022c22;
+  font-weight:600;
+  cursor:pointer;
 }
 
-  </style>
+.grid{
+  display:grid;
+  gap:8px;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+
+.table th,.table td{
+  border:1px solid var(--border);
+  padding:6px;
+  text-align:center;
+}
+
+.table th{
+  background:#020617;
+  color:var(--muted);
+}
+
+.small{
+  font-size:12px;
+  color:var(--muted);
+}
+
+@media(max-width:600px){
+  .table{font-size:11px}
+}
+</style>
 </head>
 
 <body>
+<div class="container">
 
-<h1>📊 Análisis de Partidos</h1>
-<button id="toggleTheme" style="margin-bottom:15px">
-  🌙 Modo oscuro
-</button>
-
-<!-- =========================
-     CREAR PARTIDO
-========================= -->
 <div class="card">
-  <h2>➕ Nuevo Partido</h2>
-  <input id="partidoNombre" placeholder="Ej: Real Madrid vs Barcelona" />
-  <button onclick="crearPartido()">Crear / Cargar</button>
+<h2>Partido (A - B)</h2>
+<div class="grid">
+<input id="teamA" placeholder="Equipo A">
+<input id="teamB" placeholder="Equipo B">
+</div>
 </div>
 
-<!-- =========================
-     ENFRENTAMIENTOS
-========================= -->
 <div class="card">
-  <h2>⚽ Enfrentamientos previos</h2>
-
-  <div class="row">
-    <input id="golesA" placeholder="Goles Equipo A" type="number" />
-    <input id="golesB" placeholder="Goles Equipo B" type="number" />
-
-    <input id="tirosA" placeholder="Tiros Equipo A" type="number" />
-    <input id="tirosB" placeholder="Tiros Equipo B" type="number" />
-
-    <input id="tirosPuertaA" placeholder="Tiros a puerta A" type="number" />
-    <input id="tirosPuertaB" placeholder="Tiros a puerta B" type="number" />
-
-    <input id="cornersA" placeholder="Corners A" type="number" />
-    <input id="cornersB" placeholder="Corners B" type="number" />
-
-    <input id="tarjetasA" placeholder="Tarjetas A" type="number" />
-    <input id="tarjetasB" placeholder="Tarjetas B" type="number" />
-  </div>
-
-  <button onclick="agregarEnfrentamiento()">Agregar enfrentamiento</button>
+<h3>Agregar Encuentro</h3>
+<div class="grid">
+<input id="competencia" placeholder="Competencia">
+<input id="ttA" placeholder="Tiros Totales A">
+<input id="ttB" placeholder="Tiros Totales B">
+<input id="tapA" placeholder="Tiros a Puerta A">
+<input id="tapB" placeholder="Tiros a Puerta B">
+<input id="corA" placeholder="Corners A">
+<input id="corB" placeholder="Corners B">
+<input id="tarA" placeholder="Tarjetas A">
+<input id="tarB" placeholder="Tarjetas B">
+<input id="golA" placeholder="Goles A">
+<input id="golB" placeholder="Goles B">
+</div>
+<br>
+<button onclick="addMatch()">AÑADIR ENCUENTRO</button>
 </div>
 
-<!-- =========================
-     JUGADORES A SEGUIR
-========================= -->
 <div class="card">
-  <h2>👤 Jugadores a seguir</h2>
-  <input id="jugadorNombre" placeholder="Jugador" />
-  <input id="jugadorEquipo" placeholder="Equipo" />
-  <input id="jugadorMercado" placeholder="Mercado (Gol, tiros, etc)" />
-  <input id="jugadorPromedio" placeholder="Promedio" type="number" step="0.01" />
-  <button onclick="agregarJugador()">Agregar jugador</button>
+<h3>Historial</h3>
+<table class="table" id="tabla">
+<thead>
+<tr>
+<th>Competencia</th>
+<th>Tiros Tot</th>
+<th>A Puerta</th>
+<th>Corners</th>
+<th>Tarjetas</th>
+<th>Goles</th>
+</tr>
+</thead>
+<tbody></tbody>
+<tfoot>
+<tr><th>TOTAL</th><th id="t1"></th><th id="t2"></th><th id="t3"></th><th id="t4"></th><th id="t5"></th></tr>
+<tr><th>Promedio</th><th id="p1"></th><th id="p2"></th><th id="p3"></th><th id="p4"></th><th id="p5"></th></tr>
+<tr><th>Probabilidad</th><th id="pr1"></th><th id="pr2"></th><th id="pr3"></th><th id="pr4"></th><th id="pr5"></th></tr>
+</tfoot>
+</table>
 </div>
 
-<!-- =========================
-     RESULTADOS
-========================= -->
-<div class="card">
-  <h2>📈 Resultados</h2>
-  <div id="resultados"></div>
 </div>
 
-<!-- =========================
-     FIREBASE + JS
-========================= -->
-<script type="module">
-/* =========================
-   FIREBASE
-========================= */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
-  authDomain: "apuestas-analisis.firebaseapp.com",
-  projectId: "apuestas-analisis",
-  storageBucket: "apuestas-analisis.firebasestorage.app",
-  messagingSenderId: "542021066839",
-  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
+<script>
+const firebaseConfig={
+  apiKey:"TU_API_KEY",
+  authDomain:"TU_PROYECTO.firebaseapp.com",
+  projectId:"TU_PROYECTO"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+const ref=db.collection("analisis");
 
-/* =========================
-   ESTADO
-========================= */
-let partidoId = null;
-let data = {
-  partido: "",
-  enfrentamientos: [],
-  jugadores: []
-};
+let data=[];
 
-/* =========================
-   CREAR / CARGAR
-========================= */
-window.crearPartido = async function () {
-  const nombre = document.getElementById("partidoNombre").value.trim();
-  if (!nombre) return alert("Ingresa un partido");
+function addMatch(){
+  const m={
+    competencia:competencia.value,
+    tt:+ttA.value + +ttB.value,
+    tap:+tapA.value + +tapB.value,
+    cor:+corA.value + +corB.value,
+    tar:+tarA.value + +tarB.value,
+    gol:+golA.value + +golB.value
+  };
+  ref.add(m);
+}
 
-  partidoId = nombre.toLowerCase().replace(/\s+/g, "_");
-
-  const ref = doc(db, "analisis_partidos", partidoId);
-  const snap = await getDoc(ref);
-
-  if (snap.exists()) {
-    data = snap.data();
-  } else {
-    data.partido = nombre;
-    await setDoc(ref, data);
-  }
-
+ref.onSnapshot(s=>{
+  data=[];
+  s.forEach(d=>data.push(d.data()));
   render();
-};
-
-/* =========================
-   AGREGAR ENFRENTAMIENTO
-========================= */
-window.agregarEnfrentamiento = async function () {
-  if (!partidoId) return alert("Crea o carga un partido");
-
-  data.enfrentamientos.push({
-    golesA: +golesA.value,
-    golesB: +golesB.value,
-    tirosA: +tirosA.value,
-    tirosB: +tirosB.value,
-    tirosPuertaA: +tirosPuertaA.value,
-    tirosPuertaB: +tirosPuertaB.value,
-    cornersA: +cornersA.value,
-    cornersB: +cornersB.value,
-    tarjetasA: +tarjetasA.value,
-    tarjetasB: +tarjetasB.value
-  });
-
-  await guardar();
-};
-
-/* =========================
-   AGREGAR JUGADOR
-========================= */
-window.agregarJugador = async function () {
-  if (!partidoId) return;
-
-  data.jugadores.push({
-    nombre: jugadorNombre.value,
-    equipo: jugadorEquipo.value,
-    mercado: jugadorMercado.value,
-    promedio: jugadorPromedio.value
-  });
-
-  await guardar();
-};
-
-/* =========================
-   GUARDAR
-========================= */
-async function guardar() {
-  await setDoc(doc(db, "analisis_partidos", partidoId), data);
-  render();
-}
-
-/* =========================
-   CALCULOS
-========================= */
-function promedio(campoA, campoB) {
-  if (!data.enfrentamientos.length) return 0;
-  let total = 0;
-  data.enfrentamientos.forEach(e => {
-    total += e[campoA] + e[campoB];
-  });
-  return (total / data.enfrentamientos.length).toFixed(2);
-}
-
-function probabilidadMasDeGoles(min) {
-  if (!data.enfrentamientos.length) return 0;
-  const ok = data.enfrentamientos.filter(e =>
-    e.golesA + e.golesB > min
-  ).length;
-  return Math.round((ok / data.enfrentamientos.length) * 100);
-}
-
-/* =========================
-   RENDER
-========================= */
-function render() {
-  const r = document.getElementById("resultados");
-
-  r.innerHTML = `
-    <b>${data.partido}</b><br><br>
-
-    📊 Promedios:<br>
-    • Goles: ${promedio("golesA","golesB")}<br>
-    • Tiros: ${promedio("tirosA","tirosB")}<br>
-    • Tiros a puerta: ${promedio("tirosPuertaA","tirosPuertaB")}<br>
-    • Corners: ${promedio("cornersA","cornersB")}<br>
-    • Tarjetas: ${promedio("tarjetasA","tarjetasB")}<br><br>
-
-    🎯 Probabilidades:<br>
-    • +0.5 goles: ${probabilidadMasDeGoles(0.5)}%<br>
-    • +1.5 goles: ${probabilidadMasDeGoles(1.5)}%<br>
-    • +2.5 goles: ${probabilidadMasDeGoles(2.5)}%<br><br>
-
-    👤 Jugadores a seguir:<br>
-    ${data.jugadores.map(j =>
-      `• ${j.nombre} (${j.equipo}) → ${j.mercado} (${j.promedio})`
-    ).join("<br>")}
-  `;
-}
-  /* =========================
-   MODO OSCURO
-========================= */
-const btnTheme = document.getElementById("toggleTheme");
-
-if (localStorage.getItem("theme") === "dark") {
-  document.body.classList.add("dark");
-  btnTheme.textContent = "☀️ Modo claro";
-}
-
-btnTheme.addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-  const dark = document.body.classList.contains("dark");
-  localStorage.setItem("theme", dark ? "dark" : "light");
-  btnTheme.textContent = dark ? "☀️ Modo claro" : "🌙 Modo oscuro";
 });
 
+function render(){
+  const tb=document.querySelector("#tabla tbody");
+  tb.innerHTML="";
+  let t=[0,0,0,0,0];
+  data.forEach(m=>{
+    tb.innerHTML+=`
+    <tr>
+      <td>${m.competencia}</td>
+      <td>${m.tt}</td>
+      <td>${m.tap}</td>
+      <td>${m.cor}</td>
+      <td>${m.tar}</td>
+      <td>${m.gol}</td>
+    </tr>`;
+    t[0]+=m.tt;t[1]+=m.tap;t[2]+=m.cor;t[3]+=m.tar;t[4]+=m.gol;
+  });
+  ["t1","t2","t3","t4","t5"].forEach((id,i)=>document.getElementById(id).textContent=t[i]);
+  ["p1","p2","p3","p4","p5"].forEach((id,i)=>document.getElementById(id).textContent=(t[i]/data.length||0).toFixed(1));
+  ["pr1","pr2","pr3","pr4","pr5"].forEach((id,i)=>document.getElementById(id).textContent=((t[i]/(t.reduce((a,b)=>a+b,0)||1))*100).toFixed(1)+"%");
+}
 </script>
-
 </body>
 </html>
