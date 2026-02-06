@@ -415,31 +415,34 @@ const badgeBetBuilder = esBetBuilder
        🧩 Bet Builder (${mercados.length} mercados)
      </span><br>`
   : '';
+const esPerdida = o.estado === 'Perdida';
 
-  html += `
-    <div class="option">
-      <b>${o.partido}</b><br>
-      ${badgeBetBuilder}
+ html += `
+  <div class="option"
+       style="
+         border-left:4px solid ${esPerdida ? '#dc2626' : '#22c55e'};
+         background:${esPerdida ? '#fee2e2' : '#f9fafb'};
+         padding:8px;
+         border-radius:8px;
+         margin-bottom:6px
+       ">
+    <b>${o.partido}</b><br>
 
-      ${mercadosHTML || '-'}
+    ${badgeBetBuilder}
+    ${mercadosHTML || '-'}
 
-      🎯 Cuota: <b>${o.cuota || '-'}</b><br>
+    🎯 Cuota: <b>${o.cuota || '-'}</b><br>
 
-      <select onchange="actualizarOpcion('${a.id}',${i},this.value)">
-        <option ${o.estado==='Pendiente'?'selected':''}>Pendiente</option>
-        <option ${o.estado==='Ganada'?'selected':''}>Ganada</option>
-        <option ${o.estado==='Perdida'?'selected':''}>Perdida</option>
-      </select>
-    </div>
-  `;
-        html += `
-  <label style="font-size:12px;color:#6b7280">📝 Observación</label>
-  <textarea
-    style="width:100%;border-radius:8px;padding:6px"
-    placeholder="¿Por qué se perdió / comentario general?"
-    onchange="actualizarObservacion('${a.id}', this.value)"
-  >${a.observacion || ''}</textarea>
+    <select onchange="actualizarOpcion('${a.id}',${i},this.value)">
+      <option ${o.estado==='Pendiente'?'selected':''}>Pendiente</option>
+      <option ${o.estado==='Ganada'?'selected':''}>Ganada</option>
+      <option ${o.estado==='Perdida'?'selected':''}>Perdida</option>
+    </select>
+
+    ${esPerdida ? `<div style="margin-top:4px;color:#dc2626;font-weight:600">❌ Opción perdida</div>` : ''}
+  </div>
 `;
+
 
 });
 
