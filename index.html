@@ -366,18 +366,43 @@ window.cargarHistorial = async function () {
         <summary>👤 ${a.responsable} | ${a.tipo} | Stake ${a.stake} | Cuota ${a.cuota}</summary>`;
 
       a.opciones.forEach((o, i) => {
-        html += `
-          <div class="option">
-            <b>${o.partido}</b><br>
-            ${o.mercado}<br>
-            🎯 Cuota: <b>${o.cuota || '-'}</b><br>
-            <select onchange="actualizarOpcion('${a.id}',${i},this.value)">
-              <option ${o.estado==='Pendiente'?'selected':''}>Pendiente</option>
-              <option ${o.estado==='Ganada'?'selected':''}>Ganada</option>
-              <option ${o.estado==='Perdida'?'selected':''}>Perdida</option>
-            </select>
-          </div>`;
-      });
+
+  // separar mercados tipo Bet Builder
+  const mercados = o.mercado
+    ? o.mercado.split('+').map(m => m.trim())
+    : [];
+
+  let mercadosHTML = '';
+  mercados.forEach(m => {
+    mercadosHTML += `• ${m}<br>`;
+  });
+// detectar Bet Builder
+const esBetBuilder = mercados.length > 1;
+
+const badgeBetBuilder = esBetBuilder
+  ? `<span style="font-size:12px;color:#2563eb;font-weight:600">
+       🧩 Bet Builder (${mercados.length} mercados)
+     </span><br>`
+  : '';
+
+  html += `
+    <div class="option">
+      <b>${o.partido}</b><br>
+      ${badgeBetBuilder}
+
+      ${mercadosHTML || '-'}
+
+      🎯 Cuota: <b>${o.cuota || '-'}</b><br>
+
+      <select onchange="actualizarOpcion('${a.id}',${i},this.value)">
+        <option ${o.estado==='Pendiente'?'selected':''}>Pendiente</option>
+        <option ${o.estado==='Ganada'?'selected':''}>Ganada</option>
+        <option ${o.estado==='Perdida'?'selected':''}>Perdida</option>
+      </select>
+    </div>
+  `;
+});
+
       
 if (a.tipo === "Combinada") {
   const perdida = calcularPerdidaPorCuota(a);
