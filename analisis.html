@@ -197,44 +197,70 @@ ref.onSnapshot(snap => {
   historial.innerHTML = "";
 
   snap.forEach(doc => {
-    const data = doc.data();
-    const encuentros = data.encuentros || [];
+    const d = doc.data();
+    const e = d.encuentros || [];
 
-    let tot = {
-      tt:[0,0], tap:[0,0], cor:[0,0], tar:[0,0], gol:[0,0]
-    };
+    let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
 
-    encuentros.forEach(e => {
-      tot.tt[0]+=e.stats.tt.A; tot.tt[1]+=e.stats.tt.B;
-      tot.tap[0]+=e.stats.tap.A; tot.tap[1]+=e.stats.tap.B;
-      tot.cor[0]+=e.stats.cor.A; tot.cor[1]+=e.stats.cor.B;
-      tot.tar[0]+=e.stats.tar.A; tot.tar[1]+=e.stats.tar.B;
-      tot.gol[0]+=e.stats.gol.A; tot.gol[1]+=e.stats.gol.B;
+    e.forEach(x => {
+      tot.tt += x.stats.tt.A + x.stats.tt.B;
+      tot.tap += x.stats.tap.A + x.stats.tap.B;
+      tot.cor += x.stats.cor.A + x.stats.cor.B;
+      tot.tar += x.stats.tar.A + x.stats.tar.B;
+      tot.gol += x.stats.gol.A + x.stats.gol.B;
     });
 
-    const n = encuentros.length || 1;
+    const n = e.length || 1;
+
+    const prom = {
+      tt:(tot.tt/n).toFixed(1),
+      tap:(tot.tap/n).toFixed(1),
+      cor:(tot.cor/n).toFixed(1),
+      tar:(tot.tar/n).toFixed(1),
+      gol:(tot.gol/n).toFixed(1)
+    };
+
+    const prob = {
+      gol: ((e.filter(x => (x.stats.gol.A + x.stats.gol.B) > 0).length / n) * 100).toFixed(1) + "%"
+    };
 
     historial.innerHTML += `
-      <details class="card">
-        <summary>⚽ ${data.equipoA} vs ${data.equipoB}</summary>
+    <details class="card">
+      <summary>⚽ ${d.equipoA} vs ${d.equipoB}</summary>
 
-        ${encuentros.map(e => `
-          <div class="small">
-            <b>${e.competencia}</b> |
-            TT ${e.stats.tt.A}-${e.stats.tt.B} |
-            AP ${e.stats.tap.A}-${e.stats.tap.B} |
-            COR ${e.stats.cor.A}-${e.stats.cor.B} |
-            TAR ${e.stats.tar.A}-${e.stats.tar.B} |
-            GOL ${e.stats.gol.A}-${e.stats.gol.B}
-          </div>
-        `).join("")}
+      ${e.map(x=>`
+        <div class="small">
+          ${x.competencia} |
+          TT ${x.stats.tt.A}-${x.stats.tt.B} |
+          AP ${x.stats.tap.A}-${x.stats.tap.B} |
+          COR ${x.stats.cor.A}-${x.stats.cor.B} |
+          TAR ${x.stats.tar.A}-${x.stats.tar.B} |
+          GOL ${x.stats.gol.A}-${x.stats.gol.B}
+        </div>
+      `).join("")}
 
-        <hr>
-        <b>Promedios</b><br>
-        TT ${(tot.tt[0]/n).toFixed(1)}-${(tot.tt[1]/n).toFixed(1)} |
-        GOL ${(tot.gol[0]/n).toFixed(1)}-${(tot.gol[1]/n).toFixed(1)}
-      </details>
-    `;
+      <table class="tabla-analisis">
+        <thead>
+          <tr>
+            <th>Partido</th><th>Competencia</th>
+            <th>TT</th><th>AP</th><th>COR</th><th>TAR</th><th>GOL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="2"><b>TOTAL</b></td>
+            <td>${tot.tt}</td><td>${tot.tap}</td>
+            <td>${tot.cor}</td><td>${tot.tar}</td><td>${tot.gol}</td>
+          </tr>
+          <tr><td colspan="2"><b>PROMEDIO</b></td>
+            <td>${prom.tt}</td><td>${prom.tap}</td>
+            <td>${prom.cor}</td><td>${prom.tar}</td><td>${prom.gol}</td>
+          </tr>
+          <tr><td colspan="2"><b>PROBABILIDAD GOL</b></td>
+            <td colspan="5">${prob.gol}</td>
+          </tr>
+        </tbody>
+      </table>
+    </details>`;
   });
 });
 </script>
