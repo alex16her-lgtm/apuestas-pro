@@ -5,7 +5,6 @@
 <title>Análisis de Partidos</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
@@ -17,7 +16,6 @@
   --muted:#94a3b8;
   --border:#1e293b;
   --accent:#22c55e;
-  --danger:#ef4444;
 }
 
 *{box-sizing:border-box}
@@ -27,13 +25,7 @@ body{
   color:var(--text);
   font-family:system-ui;
 }
-
-.container{
-  max-width:1100px;
-  margin:auto;
-  padding:16px;
-}
-
+.container{max-width:1200px;margin:auto;padding:16px}
 .card{
   background:var(--card);
   border:1px solid var(--border);
@@ -41,7 +33,6 @@ body{
   padding:16px;
   margin-bottom:16px;
 }
-
 input,button{
   background:#020617;
   color:var(--text);
@@ -50,44 +41,31 @@ input,button{
   padding:8px;
   width:100%;
 }
-
 button{
   background:var(--accent);
   color:#022c22;
-  font-weight:600;
+  font-weight:700;
   cursor:pointer;
 }
-
 .grid{
   display:grid;
   gap:8px;
   grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
 }
-
 .table{
   width:100%;
   border-collapse:collapse;
-  font-size:13px;
+  font-size:12px;
 }
-
 .table th,.table td{
   border:1px solid var(--border);
   padding:6px;
   text-align:center;
 }
-
-.table th{
-  background:#020617;
-  color:var(--muted);
-}
-
-.small{
-  font-size:12px;
-  color:var(--muted);
-}
-
+.table th{color:var(--muted)}
+.small{font-size:11px;color:var(--muted)}
 @media(max-width:600px){
-  .table{font-size:11px}
+  .table{font-size:10px}
 }
 </style>
 </head>
@@ -95,6 +73,7 @@ button{
 <body>
 <div class="container">
 
+<!-- PARTIDO -->
 <div class="card">
 <h2>Partido (A - B)</h2>
 <div class="grid">
@@ -103,18 +82,24 @@ button{
 </div>
 </div>
 
+<!-- ENCUENTRO -->
 <div class="card">
 <h3>Agregar Encuentro</h3>
 <div class="grid">
 <input id="competencia" placeholder="Competencia">
+
 <input id="ttA" placeholder="Tiros Totales A">
 <input id="ttB" placeholder="Tiros Totales B">
-<input id="tapA" placeholder="Tiros a Puerta A">
-<input id="tapB" placeholder="Tiros a Puerta B">
+
+<input id="tapA" placeholder="A Puerta A">
+<input id="tapB" placeholder="A Puerta B">
+
 <input id="corA" placeholder="Corners A">
 <input id="corB" placeholder="Corners B">
+
 <input id="tarA" placeholder="Tarjetas A">
 <input id="tarB" placeholder="Tarjetas B">
+
 <input id="golA" placeholder="Goles A">
 <input id="golB" placeholder="Goles B">
 </div>
@@ -122,24 +107,29 @@ button{
 <button onclick="addMatch()">AÑADIR ENCUENTRO</button>
 </div>
 
+<!-- HISTORIAL -->
 <div class="card">
 <h3>Historial</h3>
 <table class="table" id="tabla">
 <thead>
 <tr>
+<th>Partido</th>
 <th>Competencia</th>
-<th>Tiros Tot</th>
-<th>A Puerta</th>
-<th>Corners</th>
-<th>Tarjetas</th>
-<th>Goles</th>
+<th>TT (A|B)</th>
+<th>AP (A|B)</th>
+<th>COR (A|B)</th>
+<th>TAR (A|B)</th>
+<th>GOL (A|B)</th>
 </tr>
 </thead>
 <tbody></tbody>
 <tfoot>
-<tr><th>TOTAL</th><th id="t1"></th><th id="t2"></th><th id="t3"></th><th id="t4"></th><th id="t5"></th></tr>
-<tr><th>Promedio</th><th id="p1"></th><th id="p2"></th><th id="p3"></th><th id="p4"></th><th id="p5"></th></tr>
-<tr><th>Probabilidad</th><th id="pr1"></th><th id="pr2"></th><th id="pr3"></th><th id="pr4"></th><th id="pr5"></th></tr>
+<tr><th colspan="2">TOTAL</th>
+<th id="t1"></th><th id="t2"></th><th id="t3"></th><th id="t4"></th><th id="t5"></th></tr>
+<tr><th colspan="2">PROMEDIO</th>
+<th id="p1"></th><th id="p2"></th><th id="p3"></th><th id="p4"></th><th id="p5"></th></tr>
+<tr><th colspan="2">PROBABILIDAD</th>
+<th id="pr1"></th><th id="pr2"></th><th id="pr3"></th><th id="pr4"></th><th id="pr5"></th></tr>
 </tfoot>
 </table>
 </div>
@@ -155,7 +145,6 @@ const firebaseConfig = {
   messagingSenderId: "542021066839",
   appId: "1:542021066839:web:bb6a43f578a39d07c68312"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
 const ref=db.collection("analisis");
@@ -164,12 +153,16 @@ let data=[];
 
 function addMatch(){
   const m={
+    equipoA:teamA.value,
+    equipoB:teamB.value,
     competencia:competencia.value,
-    tt:+ttA.value + +ttB.value,
-    tap:+tapA.value + +tapB.value,
-    cor:+corA.value + +corB.value,
-    tar:+tarA.value + +tarB.value,
-    gol:+golA.value + +golB.value
+    stats:{
+      tt:{A:+ttA.value,B:+ttB.value},
+      tap:{A:+tapA.value,B:+tapB.value},
+      cor:{A:+corA.value,B:+corB.value},
+      tar:{A:+tarA.value,B:+tarB.value},
+      gol:{A:+golA.value,B:+golB.value}
+    }
   };
   ref.add(m);
 }
@@ -184,21 +177,30 @@ function render(){
   const tb=document.querySelector("#tabla tbody");
   tb.innerHTML="";
   let t=[0,0,0,0,0];
+
   data.forEach(m=>{
     tb.innerHTML+=`
     <tr>
+      <td>${m.equipoA} vs ${m.equipoB}</td>
       <td>${m.competencia}</td>
-      <td>${m.tt}</td>
-      <td>${m.tap}</td>
-      <td>${m.cor}</td>
-      <td>${m.tar}</td>
-      <td>${m.gol}</td>
+      <td>${m.stats.tt.A}|${m.stats.tt.B}</td>
+      <td>${m.stats.tap.A}|${m.stats.tap.B}</td>
+      <td>${m.stats.cor.A}|${m.stats.cor.B}</td>
+      <td>${m.stats.tar.A}|${m.stats.tar.B}</td>
+      <td>${m.stats.gol.A}|${m.stats.gol.B}</td>
     </tr>`;
-    t[0]+=m.tt;t[1]+=m.tap;t[2]+=m.cor;t[3]+=m.tar;t[4]+=m.gol;
+
+    t[0]+=m.stats.tt.A+m.stats.tt.B;
+    t[1]+=m.stats.tap.A+m.stats.tap.B;
+    t[2]+=m.stats.cor.A+m.stats.cor.B;
+    t[3]+=m.stats.tar.A+m.stats.tar.B;
+    t[4]+=m.stats.gol.A+m.stats.gol.B;
   });
+
   ["t1","t2","t3","t4","t5"].forEach((id,i)=>document.getElementById(id).textContent=t[i]);
   ["p1","p2","p3","p4","p5"].forEach((id,i)=>document.getElementById(id).textContent=(t[i]/data.length||0).toFixed(1));
-  ["pr1","pr2","pr3","pr4","pr5"].forEach((id,i)=>document.getElementById(id).textContent=((t[i]/(t.reduce((a,b)=>a+b,0)||1))*100).toFixed(1)+"%");
+  const sum=t.reduce((a,b)=>a+b,0)||1;
+  ["pr1","pr2","pr3","pr4","pr5"].forEach((id,i)=>document.getElementById(id).textContent=((t[i]/sum)*100).toFixed(1)+"%");
 }
 </script>
 </body>
