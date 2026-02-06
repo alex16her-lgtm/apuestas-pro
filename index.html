@@ -205,12 +205,9 @@ summary {
   <label>Tipo</label>
  <select id="tipo" onchange="recalcularCuotaTotal()">
   <option value="simple">Simple</option>
-  <option value="combinada">Combinada (varios partidos)</option>
-  <option value="betbuilder">Bet Builder (mismo partido)</option>
+  <option value="combinada">Combinada</option>
 
-
-
-  </select>
+ </select>
 
   <label>Dinero $</label>
   <input type="number" id="stake">
@@ -274,14 +271,15 @@ window.opcionesTemp = [];
 ========================= */
 window.agregarOpcion = function () {
   const i = opcionesTemp.length;
- opcionesTemp.push({
+opcionesTemp.push({
   partido: '',
   mercado: '',
-  cuota: 0,
+  cuota: 0,          // 👈 solo se usa si es opción única
+  cuotaGrupo: null,  // 👈 NUEVO: cuota del partido (bet builder)
   estado: 'Pendiente',
-  motivo: '',
-  grupo: '' // 👈 NUEVO (opcional)
+  motivo: ''
 });
+
 
 
 
@@ -290,12 +288,18 @@ window.agregarOpcion = function () {
   div.innerHTML = `
     <input placeholder="Partido" oninput="opcionesTemp[${i}].partido=this.value">
     <input placeholder="Mercado / Opción" oninput="opcionesTemp[${i}].mercado=this.value">
-   <input
+<input
   type="number"
   step="0.01"
-  placeholder="Cuota"
-  oninput="opcionesTemp[${i}].cuota=this.value; recalcularCuotaUI()"
+  placeholder="Cuota (opción o total partido)"
+  oninput="
+    opcionesTemp[${i}].cuota=this.value;
+    opcionesTemp[${i}].cuotaGrupo=this.value;
+    recalcularCuotaUI();
+  "
 />
+
+
 
 
     <select onchange="opcionesTemp[${i}].estado=this.value">
@@ -729,36 +733,26 @@ window.recalcularCuotaTotal = function () {
 
 
 function calcularCuotaTotalReal(opciones) {
-  const grupos = {};
+  const partidos = {};
 
   opciones.forEach(o => {
-    const cuota = parseFloat(o.cuota);
+    const cuota = parseFloat(o.cuotaGrupo || o.cuota);
     if (!cuota || cuota <= 1) return;
 
-    if (!grupos[o.partido]) {
-      grupos[o.partido] = {
-        opciones: 1,
-        cuotaGrupo: cuota
-      };
-    } else {
-      grupos[o.partido].opciones += 1;
-      // NO multiplicamos, solo marcamos que es bet builder
+    if (!partidos[o.partido]) {
+      partidos[o.partido] = cuota; // 👈 UNA cuota por partido
     }
   });
 
   let cuotaTotal = 1;
-
-  Object.values(grupos).forEach(g => {
-    cuotaTotal *= g.cuotaGrupo;
-  });
+  Object.values(partidos).forEach(c => cuotaTotal *= c);
 
   return cuotaTotal.toFixed(2);
 }
 
+
 window.recalcularCuotaUI = function () {
   const tipo = document.getElementById("tipo").value;
-
-  if (tipo === "betbuilder") return; // 👈 CLAVE
 
   const cuota = calcularCuotaTotalReal(opcionesTemp);
   document.getElementById("cuota").value = cuota;
