@@ -110,6 +110,7 @@ button{
 <!-- HISTORIAL -->
 <div class="card">
 <h3>Historial</h3>
+<div id="historial"></div>
 <table class="table" id="tabla">
 <thead>
 <tr>
@@ -193,6 +194,7 @@ async function addMatch() {
 }
   ref.onSnapshot(snap=>{
   const cont = document.getElementById("historial");
+    if (!cont) return;
   cont.innerHTML = "";
 
   snap.forEach(doc=>{
