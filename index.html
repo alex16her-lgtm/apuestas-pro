@@ -365,17 +365,35 @@ window.cargarHistorial = async function () {
 
     porFecha[fecha].forEach(a => {
       html += `<details style="margin-left:15px">
-       <summary>
-  👤 ${a.responsable} | ${a.tipo} |
+      const estado = obtenerEstadoGeneral(a);
+
+html += `
+<summary style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  👤 ${a.responsable} |
+  ${a.tipo} |
+  
   Stake:
+  <span id="stake-text-${a.id}">$${a.stake}</span>
+
   <input
+    id="stake-input-${a.id}"
     type="number"
     value="${a.stake}"
-    style="width:90px"
-    onchange="actualizarStake('${a.id}', this.value)"
+    style="width:90px;display:none"
+    onblur="guardarStakeEditado('${a.id}', this.value)"
   >
+
+  <span
+    style="cursor:pointer"
+    onclick="editarStake('${a.id}')"
+    title="Editar stake"
+  >✏️</span>
+
   | Cuota ${a.cuota}
+
+  | ${estado.icono} ${estado.texto}
 </summary>`;
+
 
       a.opciones.forEach((o, i) => {
 
@@ -859,6 +877,39 @@ window.actualizarObservacion = async function (apuestaId, texto) {
     observacion: texto
   });
 };
+function obtenerEstadoGeneral(apuesta) {
+  if (apuesta.opciones.some(o => o.estado === "Pendiente")) {
+    return { texto: "Pendiente", icono: "🟡" };
+  }
+  if (apuesta.opciones.some(o => o.estado === "Perdida")) {
+    return { texto: "Perdida", icono: "🔴" };
+  }
+  return { texto: "Ganada", icono: "🟢" };
+}
+
+  window.editarStake = function (id) {
+  document.getElementById(`stake-text-${id}`).style.display = "none";
+  const input = document.getElementById(`stake-input-${id}`);
+  input.style.display = "inline-block";
+  input.focus();
+};
+window.guardarStakeEditado = async function (apuestaId, nuevoStake) {
+  const ref = doc(db, "apuestas", apuestaId);
+
+  await updateDoc(ref, {
+    stake: Number(nuevoStake)
+  });
+
+  // volver a modo texto
+  document.getElementById(`stake-input-${apuestaId}`).style.display = "none";
+  document.getElementById(`stake-text-${apuestaId}`).style.display = "inline";
+
+  document.getElementById(`stake-text-${apuestaId}`).innerText = `$${nuevoStake}`;
+
+  await calcularBanca();
+  await calcularRentabilidad();
+};
+
 
 </script>
 
