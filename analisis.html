@@ -145,18 +145,24 @@ const firebaseConfig = {
   messagingSenderId: "542021066839",
   appId: "1:542021066839:web:bb6a43f578a39d07c68312"
 };
+
 firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const ref=db.collection("analisis");
+const db = firebase.firestore();
+const ref = db.collection("analisis");
 
-let data=[];
+// agregar encuentro
+async function addMatch() {
+  const equipoA = teamA.value.trim();
+  const equipoB = teamB.value.trim();
 
-function addMatch(){
-  const m={
-    equipoA:teamA.value,
-    equipoB:teamB.value,
-    competencia:competencia.value,
-    stats:{
+  if (!equipoA || !equipoB) {
+    alert("Faltan equipos");
+    return;
+  }
+
+  const encuentro = {
+    competencia: competencia.value,
+    stats: {
       tt:{A:+ttA.value,B:+ttB.value},
       tap:{A:+tapA.value,B:+tapB.value},
       cor:{A:+corA.value,B:+corB.value},
@@ -164,53 +170,75 @@ function addMatch(){
       gol:{A:+golA.value,B:+golB.value}
     }
   };
-  ref.add(m);
+
+  // buscar si ya existe ese análisis
+  const q = await ref
+    .where("equipoA","==",equipoA)
+    .where("equipoB","==",equipoB)
+    .get();
+
+  if (q.empty) {
+    await ref.add({
+      equipoA,
+      equipoB,
+      encuentros:[encuentro],
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    const doc = q.docs[0];
+    await ref.doc(doc.id).update({
+      encuentros: firebase.firestore.FieldValue.arrayUnion(encuentro)
+    });
+  }
 }
+  ref.onSnapshot(snap=>{
+  const cont = document.getElementById("historial");
+  cont.innerHTML = "";
 
-ref.onSnapshot(s=>{
-  data=[];
-  s.forEach(d=>data.push(d.data()));
-  render();
+  snap.forEach(doc=>{
+    const a = doc.data();
+    const enc = a.encuentros || [];
+
+    let tot = {
+      tt:[0,0], tap:[0,0], cor:[0,0], tar:[0,0], gol:[0,0]
+    };
+
+    enc.forEach(e=>{
+      tot.tt[0]+=e.stats.tt.A; tot.tt[1]+=e.stats.tt.B;
+      tot.tap[0]+=e.stats.tap.A; tot.tap[1]+=e.stats.tap.B;
+      tot.cor[0]+=e.stats.cor.A; tot.cor[1]+=e.stats.cor.B;
+      tot.tar[0]+=e.stats.tar.A; tot.tar[1]+=e.stats.tar.B;
+      tot.gol[0]+=e.stats.gol.A; tot.gol[1]+=e.stats.gol.B;
+    });
+
+    const n = enc.length || 1;
+
+    cont.innerHTML += `
+      <details class="card">
+        <summary>⚽ ${a.equipoA} vs ${a.equipoB}</summary>
+
+        ${enc.map(e=>`
+          <div class="fila">
+            <b>${e.competencia}</b><br>
+            Tiros ${e.stats.tt.A}-${e.stats.tt.B} |
+            Goles ${e.stats.gol.A}-${e.stats.gol.B}
+          </div>
+        `).join("")}
+
+        <hr>
+        <b>Totales</b><br>
+        Tiros ${tot.tt[0]}-${tot.tt[1]} |
+        Goles ${tot.gol[0]}-${tot.gol[1]}
+
+        <br><b>Promedios</b><br>
+        Tiros ${(tot.tt[0]/n).toFixed(1)}-${(tot.tt[1]/n).toFixed(1)} |
+        Goles ${(tot.gol[0]/n).toFixed(1)}-${(tot.gol[1]/n).toFixed(1)}
+      </details>
+    `;
+  });
 });
-
-function render(){
-  const tb=document.querySelector("#tabla tbody");
-  tb.innerHTML="";
-  let t=[0,0,0,0,0];
-
-data.forEach(m=>{
-  const s = m.stats || {
-    tt:{A:0,B:0},
-    tap:{A:0,B:0},
-    cor:{A:0,B:0},
-    tar:{A:0,B:0},
-    gol:{A:0,B:0}
-  };
-
-  tb.innerHTML+=`
-  <tr>
-    <td>${m.equipoA || "—"} vs ${m.equipoB || "—"}</td>
-    <td>${m.competencia || "—"}</td>
-    <td>${s.tt.A}|${s.tt.B}</td>
-    <td>${s.tap.A}|${s.tap.B}</td>
-    <td>${s.cor.A}|${s.cor.B}</td>
-    <td>${s.tar.A}|${s.tar.B}</td>
-    <td>${s.gol.A}|${s.gol.B}</td>
-  </tr>`;
-
-  t[0]+=s.tt.A+s.tt.B;
-  t[1]+=s.tap.A+s.tap.B;
-  t[2]+=s.cor.A+s.cor.B;
-  t[3]+=s.tar.A+s.tar.B;
-  t[4]+=s.gol.A+s.gol.B;
-});
-
-
-  ["t1","t2","t3","t4","t5"].forEach((id,i)=>document.getElementById(id).textContent=t[i]);
-  ["p1","p2","p3","p4","p5"].forEach((id,i)=>document.getElementById(id).textContent=(t[i]/data.length||0).toFixed(1));
-  const sum=t.reduce((a,b)=>a+b,0)||1;
-  ["pr1","pr2","pr3","pr4","pr5"].forEach((id,i)=>document.getElementById(id).textContent=((t[i]/sum)*100).toFixed(1)+"%");
-}
 </script>
+
+
 </body>
 </html>
