@@ -150,6 +150,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const ref = db.collection("analisis");
+  
+function overUnder(valorTotal, linea){
+  if (isNaN(valorTotal)) return "-";
+  return valorTotal > linea
+    ? `OVER ${linea}`
+    : `UNDER ${linea}`;
+}
 
 // agregar encuentro
 async function addMatch() {
