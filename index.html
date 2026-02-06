@@ -346,6 +346,7 @@ const apuesta = {
    HISTORIAL DESPLEGABLE
 ========================= */
 window.cargarHistorial = async function () {
+  const abiertos = obtenerDetailsAbiertos();
   const cont = document.getElementById('historial');
   cont.innerHTML = '';
 
@@ -361,14 +362,15 @@ window.cargarHistorial = async function () {
   });
 
   Object.keys(porFecha).forEach(fecha => {
-    let html = `<details class="card"><summary>📅 ${fecha}</summary>`;
+   let html = `<details class="card" data-id="fecha-${fecha}">
+  <summary>📅 ${fecha}</summary>`;
 
     porFecha[fecha].forEach(a => {
     
       const estado = obtenerEstadoGeneral(a);
 
 html += `
-        <details style="margin-left:15px">
+        <details style="margin-left:15px" data-id="apuesta-${a.id}">
 <summary style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
   👤 ${a.responsable} |
   ${a.tipo} |
@@ -410,6 +412,7 @@ if (Array.isArray(o.mercadosDetalle)) {
     nombre: m.trim(),
     estado: 'Pendiente'
   }));
+  restaurarDetailsAbiertos(abiertos);
 }
 
 
@@ -1009,7 +1012,18 @@ window.actualizarMercadoBetBuilder = async function (
   await calcularBanca();
   await calcularRentabilidad();
 };
+function obtenerDetailsAbiertos() {
+  return [...document.querySelectorAll('details[open]')]
+    .map(d => d.getAttribute('data-id'))
+    .filter(Boolean);
+}
 
+function restaurarDetailsAbiertos(ids) {
+  ids.forEach(id => {
+    const d = document.querySelector(`details[data-id="${id}"]`);
+    if (d) d.open = true;
+  });
+}
 
 
 </script>
