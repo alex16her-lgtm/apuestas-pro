@@ -364,10 +364,11 @@ window.cargarHistorial = async function () {
     let html = `<details class="card"><summary>📅 ${fecha}</summary>`;
 
     porFecha[fecha].forEach(a => {
-      html += `<details style="margin-left:15px">
+    
       const estado = obtenerEstadoGeneral(a);
 
 html += `
+        <details style="margin-left:15px">
 <summary style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
   👤 ${a.responsable} |
   ${a.tipo} |
