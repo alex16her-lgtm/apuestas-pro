@@ -399,14 +399,50 @@ html += `
       a.opciones.forEach((o, i) => {
 
   // separar mercados tipo Bet Builder
-  const mercados = o.mercado
-    ? o.mercado.split('+').map(m => m.trim())
-    : [];
+ const mercados = o.mercadosDetalle
+  ? o.mercadosDetalle
+  : o.mercado
+      ? o.mercado.split('+').map(m => ({
+          nombre: m.trim(),
+          estado: o.estado || 'Pendiente'
+        }))
+      : [];
 
-  let mercadosHTML = '';
-  mercados.forEach(m => {
-    mercadosHTML += `• ${m}<br>`;
-  });
+
+ let mercadosHTML = '';
+
+mercados.forEach((m, idx) => {
+  const nombre = typeof m === 'string' ? m : m.nombre;
+  const estado = typeof m === 'string' ? o.estado : m.estado;
+  const esPerdido = estado === 'Perdida';
+
+  mercadosHTML += `
+    <div
+      style="
+        padding:4px 6px;
+        margin-bottom:4px;
+        border-radius:6px;
+        background:${esPerdido ? '#fee2e2' : '#f3f4f6'};
+        border-left:4px solid ${esPerdido ? '#dc2626' : '#22c55e'};
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        font-size:13px
+      "
+    >
+      <span>${nombre}</span>
+
+      <select
+        onchange="actualizarMercadoBetBuilder('${a.id}', ${i}, ${idx}, this.value)"
+      >
+        <option ${estado==='Pendiente'?'selected':''}>Pendiente</option>
+        <option ${estado==='Ganada'?'selected':''}>Ganada</option>
+        <option ${estado==='Perdida'?'selected':''}>Perdida</option>
+      </select>
+    </div>
+  `;
+});
+
 // detectar Bet Builder
 const esBetBuilder = mercados.length > 1;
 
@@ -912,6 +948,40 @@ window.guardarStakeEditado = async function (apuestaId, nuevoStake) {
 
   await calcularBanca();
   await calcularRentabilidad();
+};
+  
+window.actualizarMercadoBetBuilder = async function (
+  apuestaId,
+  opcionIndex,
+  mercadoIndex,
+  nuevoEstado
+) {
+  const ref = doc(db, "apuestas", apuestaId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const opcion = data.opciones[opcionIndex];
+
+  if (!opcion.mercadosDetalle) {
+    opcion.mercadosDetalle = opcion.mercado
+      .split('+')
+      .map(m => ({
+        nombre: m.trim(),
+        estado: 'Pendiente'
+      }));
+  }
+
+  opcion.mercadosDetalle[mercadoIndex].estado = nuevoEstado;
+
+  // si algún mercado se pierde → la opción completa es Perdida
+  if (opcion.mercadosDetalle.some(m => m.estado === 'Perdida')) {
+    opcion.estado = 'Perdida';
+  }
+
+  await updateDoc(ref, { opciones: data.opciones });
+  cargarHistorial();
 };
 
 
