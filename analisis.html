@@ -89,6 +89,9 @@ button{
   background: #f8d7da;
   color: #842029;
 }
+.prob.green{ color:#22c55e; font-weight:700 }
+.prob.yellow{ color:#eab308; font-weight:700 }
+.prob.red{ color:#ef4444; font-weight:700 }
 
 </style>
 </head>
@@ -110,7 +113,12 @@ button{
 <h3>Agregar Encuentro</h3>
 <div class="grid">
 <input id="competencia" placeholder="Competencia">
-
+<select id="equipoLocal">
+  <option value="">Local (general)</option>
+  <option value="A">Equipo A es LOCAL</option>
+  <option value="B">Equipo B es LOCAL</option>
+</select>
+  
 <input id="ttA" placeholder="Tiros Totales A">
 <input id="ttB" placeholder="Tiros Totales B">
 
@@ -193,6 +201,7 @@ async function addMatch() {
 
   const encuentro = {
     competencia: competencia.value,
+    local: equipoLocal.value, // "A" o "B
     stats: {
       tt:{A:+ttA.value,B:+ttB.value},
       tap:{A:+tapA.value,B:+tapB.value},
@@ -222,26 +231,7 @@ async function addMatch() {
     });
   }
 }
-  function probOverUnder(encuentros, stat, linea){
-  let over = 0;
-  let under = 0;
-
-  encuentros.forEach(e => {
-    const s = e.stats;
-    const total = s[stat].A + s[stat].B;
-
-    if (total > linea) over++;
-    else under++;
-  });
-
-  const totalPartidos = encuentros.length || 1;
-  const pOver  = Math.round((over / totalPartidos) * 100);
-  const pUnder = Math.round((under / totalPartidos) * 100);
-
-  return pOver >= pUnder
-    ? `OVER ${linea} (${pOver}%)`
-    : `UNDER ${linea} (${pUnder}%)`;
-}
+ 
   function probOverUnder(encuentros, stat, linea){
   let over = 0;
   let under = 0;
@@ -279,6 +269,17 @@ ref.onSnapshot(snapshot => {
   snapshot.forEach(doc => {
     const m = doc.data();
     const encuentros = m.encuentros || [];
+    const localElegido = document.getElementById("equipoLocal")?.value || null;
+
+// encuentros según contexto
+const encuentrosContexto = localElegido
+  ? filtrarPorLocal(encuentros, localElegido)
+  : encuentros;
+
+// fallback inteligente
+const dataProb = encuentrosContexto.length >= 3
+  ? encuentrosContexto
+  : encuentros;
 
     let tot = {
       tt: 0, tap: 0, cor: 0, tar: 0, gol: 0
@@ -352,11 +353,12 @@ ref.onSnapshot(snapshot => {
 
           <tr>
   <td colspan="2"><b>PROBABILIDAD</b></td>
- <td>${probOverUnder(encuentros,"tt",20)}</td>
-<td>${probOverUnder(encuentros,"tap",8)}</td>
-<td>${probOverUnder(encuentros,"cor",9)}</td>
-<td>${probOverUnder(encuentros,"tar",4)}</td>
-<td>${probOverUnder(encuentros,"gol",2.5)}</td>
+<td>${probOverUnder(dataProb,"tt",20)}</td>
+<td>${probOverUnder(dataProb,"tap",8)}</td>
+<td>${probOverUnder(dataProb,"cor",9)}</td>
+<td>${probOverUnder(dataProb,"tar",4)}</td>
+<td>${probOverUnder(dataProb,"gol",2.5)}</td>
+
 
 </tr>
 
@@ -365,6 +367,10 @@ ref.onSnapshot(snapshot => {
     </details>`;
   });
 });
+  function filtrarPorLocal(encuentros, local){
+  return encuentros.filter(e => e.local === local);
+}
+
 </script>
 
 
