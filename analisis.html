@@ -206,13 +206,6 @@ data.forEach(m=>{
 });
 
 
-    t[0]+=m.stats.tt.A+m.stats.tt.B;
-    t[1]+=m.stats.tap.A+m.stats.tap.B;
-    t[2]+=m.stats.cor.A+m.stats.cor.B;
-    t[3]+=m.stats.tar.A+m.stats.tar.B;
-    t[4]+=m.stats.gol.A+m.stats.gol.B;
-  });
-
   ["t1","t2","t3","t4","t5"].forEach((id,i)=>document.getElementById(id).textContent=t[i]);
   ["p1","p2","p3","p4","p5"].forEach((id,i)=>document.getElementById(id).textContent=(t[i]/data.length||0).toFixed(1));
   const sum=t.reduce((a,b)=>a+b,0)||1;
