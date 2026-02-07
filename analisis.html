@@ -187,7 +187,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const ref = db.collection("analisis");
-  const refEquipos = db.collection("equipos");
+ 
   
 function overUnder(valorTotal, linea){
   if (isNaN(valorTotal)) return "-";
@@ -267,36 +267,6 @@ async function addMatch() {
     </span>
   `;
 }
- async function getFormaEquipo(nombreEquipo){
-  const q = await refEquipos.where("nombre","==",nombreEquipo).get();
-  if(q.empty) return null;
-
-  const p = q.docs[0].data().partidos || [];
-  if(!p.length) return null;
-
-  let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-
-  p.forEach(x=>{
-    tot.tt  += x.stats.tt;
-    tot.tap += x.stats.tap;
-    tot.cor += x.stats.cor;
-    tot.tar += x.stats.tar;
-    tot.gol += x.stats.gol;
-  });
-
-  const n = p.length;
-
-  return {
-    n,
-    prom:{
-      tt:(tot.tt/n),
-      tap:(tot.tap/n),
-      cor:(tot.cor/n),
-      tar:(tot.tar/n),
-      gol:(tot.gol/n)
-    }
-  };
-}
 
 ref.onSnapshot(snapshot => {
   const h = document.getElementById("historial");
@@ -307,8 +277,7 @@ ref.onSnapshot(snapshot => {
     const encuentros = m.encuentros || [];
     const localElegido = document.getElementById("equipoLocal")?.value || null;
     
-const formaA = await getFormaEquipo(m.equipoA);
-const formaB = await getFormaEquipo(m.equipoB);
+
 // encuentros según contexto
 const encuentrosContexto = localElegido
   ? filtrarPorLocal(encuentros, localElegido)
@@ -418,14 +387,7 @@ totB.gol += s.gol.B;
   <th>${(totB.tar/n).toFixed(1)}</th>
   <th>${(totB.gol/n).toFixed(1)}</th>
 </tr>
-<tr>
-  <td colspan="2"><b>FORMA vs H2H</b></td>
-  <td>${compararFormaVsH2H(formaA,formaB,(tot.tt/n), "tt",24.5)}</td>
-  <td>${compararFormaVsH2H(formaA,formaB,(tot.tap/n),"tap",5.5)}</td>
-  <td>${compararFormaVsH2H(formaA,formaB,(tot.cor/n),"cor",7.5)}</td>
-  <td>${compararFormaVsH2H(formaA,formaB,(tot.tar/n),"tar",2.5)}</td>
-  <td>${compararFormaVsH2H(formaA,formaB,(tot.gol/n),"gol",2.5)}</td>
-</tr>
+
           <tr>
   <td colspan="2"><b>PROBABILIDAD</b></td>
 <td>${probOverUnder(dataProb,"tt",24.5)}</td>
@@ -443,17 +405,7 @@ totB.gol += s.gol.B;
   });
 });
  
-  function compararFormaVsH2H(formaA, formaB, h2h, stat, linea){
-  let señales = 0;
 
-  if(formaA && formaA.prom[stat] > linea/2) señales++;
-  if(formaB && formaB.prom[stat] > linea/2) señales++;
-  if(h2h > linea) señales++;
-
-  if(señales >= 2) return "🟢 FORMA > H2H";
-  if(señales === 1) return "🟡 MIXTO";
-  return "🔴 H2H FRENA";
-}
   function filtrarPorLocal(encuentros, local){
   return encuentros.filter(e => e.local === local);
 }
