@@ -277,7 +277,9 @@ ref.onSnapshot(snapshot => {
     const m = doc.data();
     const encuentros = m.encuentros || [];
     const localElegido = document.getElementById("equipoLocal")?.value || null;
-
+    
+const formaA = await getFormaEquipo(m.equipoA);
+const formaB = await getFormaEquipo(m.equipoB);
 // encuentros según contexto
 const encuentrosContexto = localElegido
   ? filtrarPorLocal(encuentros, localElegido)
@@ -294,8 +296,7 @@ const dataProb = encuentrosContexto.length >= 3
 let totA = { tt:0, tap:0, cor:0, tar:0, gol:0 };
 let totB = { tt:0, tap:0, cor:0, tar:0, gol:0 };
     let filas = "";
-const formaA = await getFormaEquipo(m.equipoA);
-const formaB = await getFormaEquipo(m.equipoB);
+
     encuentros.forEach(e => {
       const s = e.stats;
 
