@@ -104,6 +104,11 @@ button{
   <input id="cor" placeholder="Corners">
   <input id="tar" placeholder="Tarjetas">
   <input id="gol" placeholder="Goles">
+  <select id="resultado">
+  <option value="G">Ganó</option>
+  <option value="E">Empató</option>
+  <option value="P">Perdió</option>
+</select>
 </div>
 <br>
 <button onclick="agregarPartido()">AÑADIR PARTIDO</button>
@@ -142,6 +147,7 @@ async function agregarPartido(){
     fecha: new Date(),
     rival: rival.value,
     competencia: competencia.value,
+    resultado: resultado.value, // G / E / P
     local: local.value === "true",
     stats:{
       tt:+tt.value,
@@ -200,12 +206,16 @@ ref.onSnapshot(snap=>{
 
     h.innerHTML+=`
     <details class="card">
-    <summary>⚽ ${e.nombre} (${n} partidos)</summary>
+    <summary>
+⚽ ${e.nombre} (${n} partidos) 
+🟢${geps.G} ⚪${geps.E} 🔴${geps.P}
+</summary>
+
 
     <table class="table">
     <thead>
       <tr>
-        <th>Rival</th><th>L/V</th><th>TT</th><th>AP</th>
+       <th>Rival</th><th>L/V</th><th>R</th><th>TT</th><th>AP</th>
         <th>COR</th><th>TAR</th><th>GOL</th>
       </tr>
     </thead>
@@ -214,6 +224,7 @@ ref.onSnapshot(snap=>{
       <tr>
         <td>${x.rival}</td>
         <td>${x.local?"L":"V"}</td>
+        <td>${x.resultado || "-"}</td>
         <td>${x.stats.tt}</td>
         <td>${x.stats.tap}</td>
         <td>${x.stats.cor}</td>
@@ -229,6 +240,11 @@ ref.onSnapshot(snap=>{
         <th>${(tot.tar/n).toFixed(1)}</th>
         <th>${(tot.gol/n).toFixed(1)}</th>
       </tr>
+      let geps = {G:0,E:0,P:0};
+p.forEach(x=>{
+  if(x.resultado) geps[x.resultado]++;
+});
+
       <tr><th>PROB</th><th></th>
         <th>${prob(p,"tt",10)}</th>
         <th>${prob(p,"tap",4)}</th>
