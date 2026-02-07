@@ -194,7 +194,11 @@ ref.onSnapshot(snap=>{
     const p=e.partidos||[];
     let geps = { G: 0, E: 0, P: 0 };
     if(!p.length) return;
-
+p.forEach(x=>{
+  if (x.resultado && geps[x.resultado] !== undefined) {
+    geps[x.resultado]++;
+  }
+});
     let tot={tt:0,tap:0,cor:0,tar:0,gol:0};
     p.forEach(x=>{
       tot.tt+=x.stats.tt;
@@ -233,27 +237,29 @@ ref.onSnapshot(snap=>{
         <td>${x.stats.gol}</td>
       </tr>`).join("")}
     </tbody>
-    <tfoot>
-      <tr><th>PROM</th><th></th>
-        <th>${(tot.tt/n).toFixed(1)}</th>
-        <th>${(tot.tap/n).toFixed(1)}</th>
-        <th>${(tot.cor/n).toFixed(1)}</th>
-        <th>${(tot.tar/n).toFixed(1)}</th>
-        <th>${(tot.gol/n).toFixed(1)}</th>
-      </tr>
-      let geps = {G:0,E:0,P:0};
-p.forEach(x=>{
-  if(x.resultado) geps[x.resultado]++;
-});
+   <tfoot>
+  <tr>
+    <th>PROM</th>
+    <th></th>
+    <th></th>
+    <th>${(tot.tt/n).toFixed(1)}</th>
+    <th>${(tot.tap/n).toFixed(1)}</th>
+    <th>${(tot.cor/n).toFixed(1)}</th>
+    <th>${(tot.tar/n).toFixed(1)}</th>
+    <th>${(tot.gol/n).toFixed(1)}</th>
+  </tr>
 
-      <tr><th>PROB</th><th></th>
-        <th>${prob(p,"tt",10)}</th>
-        <th>${prob(p,"tap",4)}</th>
-        <th>${prob(p,"cor",4.5)}</th>
-        <th>${prob(p,"tar",3.5)}</th>
-        <th>${prob(p,"gol",1.5)}</th>
-      </tr>
-    </tfoot>
+  <tr>
+    <th>PROB</th>
+    <th></th>
+    <th></th>
+    <th>${prob(p,"tt",10)}</th>
+    <th>${prob(p,"tap",4)}</th>
+    <th>${prob(p,"cor",4.5)}</th>
+    <th>${prob(p,"tar",3.5)}</th>
+    <th>${prob(p,"gol",1.5)}</th>
+  </tr>
+</tfoot>
     </table>
     </details>`;
   });
