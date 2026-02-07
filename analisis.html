@@ -267,7 +267,36 @@ async function addMatch() {
     </span>
   `;
 }
+ async function getFormaEquipo(nombreEquipo){
+  const q = await refEquipos.where("nombre","==",nombreEquipo).get();
+  if(q.empty) return null;
 
+  const p = q.docs[0].data().partidos || [];
+  if(!p.length) return null;
+
+  let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
+
+  p.forEach(x=>{
+    tot.tt  += x.stats.tt;
+    tot.tap += x.stats.tap;
+    tot.cor += x.stats.cor;
+    tot.tar += x.stats.tar;
+    tot.gol += x.stats.gol;
+  });
+
+  const n = p.length;
+
+  return {
+    n,
+    prom:{
+      tt:(tot.tt/n),
+      tap:(tot.tap/n),
+      cor:(tot.cor/n),
+      tar:(tot.tar/n),
+      gol:(tot.gol/n)
+    }
+  };
+}
 
 ref.onSnapshot(snapshot => {
   const h = document.getElementById("historial");
@@ -413,36 +442,7 @@ totB.gol += s.gol.B;
     </details>`;
   });
 });
-  async function getFormaEquipo(nombreEquipo){
-  const q = await refEquipos.where("nombre","==",nombreEquipo).get();
-  if(q.empty) return null;
-
-  const p = q.docs[0].data().partidos || [];
-  if(!p.length) return null;
-
-  let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-
-  p.forEach(x=>{
-    tot.tt  += x.stats.tt;
-    tot.tap += x.stats.tap;
-    tot.cor += x.stats.cor;
-    tot.tar += x.stats.tar;
-    tot.gol += x.stats.gol;
-  });
-
-  const n = p.length;
-
-  return {
-    n,
-    prom:{
-      tt:(tot.tt/n),
-      tap:(tot.tap/n),
-      cor:(tot.cor/n),
-      tar:(tot.tar/n),
-      gol:(tot.gol/n)
-    }
-  };
-}
+ 
   function compararFormaVsH2H(formaA, formaB, h2h, stat, linea){
   let señales = 0;
 
