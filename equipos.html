@@ -192,6 +192,7 @@ ref.onSnapshot(snap=>{
   snap.forEach(d=>{
     const e=d.data();
     const p=e.partidos||[];
+    let geps = { G: 0, E: 0, P: 0 };
     if(!p.length) return;
 
     let tot={tt:0,tap:0,cor:0,tar:0,gol:0};
