@@ -290,7 +290,8 @@ const dataProb = encuentrosContexto.length >= 3
     let tot = {
       tt: 0, tap: 0, cor: 0, tar: 0, gol: 0
     };
-
+let totA = { tt:0, tap:0, cor:0, tar:0, gol:0 };
+let totB = { tt:0, tap:0, cor:0, tar:0, gol:0 };
     let filas = "";
 
     encuentros.forEach(e => {
@@ -301,6 +302,19 @@ const dataProb = encuentrosContexto.length >= 3
       tot.cor += s.cor.A + s.cor.B;
       tot.tar += s.tar.A + s.tar.B;
       tot.gol += s.gol.A + s.gol.B;
+// Equipo A
+totA.tt  += s.tt.A;
+totA.tap += s.tap.A;
+totA.cor += s.cor.A;
+totA.tar += s.tar.A;
+totA.gol += s.gol.A;
+
+// Equipo B
+totB.tt  += s.tt.B;
+totB.tap += s.tap.B;
+totB.cor += s.cor.B;
+totB.tar += s.tar.B;
+totB.gol += s.gol.B;
 
       filas += `
         <tr>
@@ -356,7 +370,22 @@ const dataProb = encuentrosContexto.length >= 3
             <th>${(tot.tar/n).toFixed(1)}</th>
             <th>${(tot.gol/n).toFixed(1)}</th>
           </tr>
-
+<tr>
+  <th colspan="2">PROM ${m.equipoA}</th>
+  <th>${(totA.tt/n).toFixed(1)}</th>
+  <th>${(totA.tap/n).toFixed(1)}</th>
+  <th>${(totA.cor/n).toFixed(1)}</th>
+  <th>${(totA.tar/n).toFixed(1)}</th>
+  <th>${(totA.gol/n).toFixed(1)}</th>
+</tr>
+<tr>
+  <th colspan="2">PROM ${m.equipoB}</th>
+  <th>${(totB.tt/n).toFixed(1)}</th>
+  <th>${(totB.tap/n).toFixed(1)}</th>
+  <th>${(totB.cor/n).toFixed(1)}</th>
+  <th>${(totB.tar/n).toFixed(1)}</th>
+  <th>${(totB.gol/n).toFixed(1)}</th>
+</tr>
           <tr>
   <td colspan="2"><b>PROBABILIDAD</b></td>
 <td>${probOverUnder(dataProb,"tt",24.5)}</td>
