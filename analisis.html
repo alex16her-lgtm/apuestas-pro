@@ -294,7 +294,8 @@ const dataProb = encuentrosContexto.length >= 3
 let totA = { tt:0, tap:0, cor:0, tar:0, gol:0 };
 let totB = { tt:0, tap:0, cor:0, tar:0, gol:0 };
     let filas = "";
-
+const formaA = await getFormaEquipo(m.equipoA);
+const formaB = await getFormaEquipo(m.equipoB);
     encuentros.forEach(e => {
       const s = e.stats;
 
@@ -316,10 +317,7 @@ totB.tap += s.tap.B;
 totB.cor += s.cor.B;
 totB.tar += s.tar.B;
 totB.gol += s.gol.B;
-      
-const formaA = await getFormaEquipo(m.equipoA);
-const formaB = await getFormaEquipo(m.equipoB);
-      
+          
       filas += `
         <tr>
           <td>${m.equipoA} vs ${m.equipoB}</td>
