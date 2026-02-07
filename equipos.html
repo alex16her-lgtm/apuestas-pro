@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Análisis por Equipo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --bg:#0f172a;
+  --card:#020617;
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --border:#1e293b;
+  --accent:#22c55e;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui;
+}
+.container{
+  max-width:1200px;
+  margin:auto;
+  padding:16px;
+}
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+}
+input, select, button{
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--text);
+}
+button{
+  background:var(--accent);
+  color:#022c22;
+  font-weight:700;
+  cursor:pointer;
+}
+.grid{
+  display:grid;
+  gap:8px;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+}
+.table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.table th,.table td{
+  border:1px solid var(--border);
+  padding:6px;
+  text-align:center;
+}
+.table th{color:var(--muted)}
+
+.prob.green{color:#22c55e;font-weight:700}
+.prob.yellow{color:#facc15;font-weight:700}
+.prob.red{color:#ef4444;font-weight:700}
+
+@media(max-width:600px){
+  .table{font-size:10px}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="card">
+  <h2>📊 Análisis por Equipo (últimos 10 partidos)</h2>
+</div>
+
+<!-- AGREGAR PARTIDO -->
+<div class="card">
+<h3>Agregar partido del equipo</h3>
+<div class="grid">
+  <input id="equipo" placeholder="Equipo">
+  <input id="rival" placeholder="Rival">
+  <select id="local">
+    <option value="true">Local</option>
+    <option value="false">Visitante</option>
+  </select>
+  <input id="competencia" placeholder="Competencia">
+
+  <input id="tt" placeholder="Tiros Totales">
+  <input id="tap" placeholder="Tiros a Puerta">
+  <input id="cor" placeholder="Corners">
+  <input id="tar" placeholder="Tarjetas">
+  <input id="gol" placeholder="Goles">
+</div>
+<br>
+<button onclick="agregarPartido()">AÑADIR PARTIDO</button>
+</div>
+
+<!-- HISTORIAL -->
+<div class="card">
+<h3>Historial por equipo</h3>
+<div id="historial"></div>
+</div>
+
+<button onclick="volver()">⬅ Volver a apuestas</button>
+
+</div>
+
+<script>
+// 🔥 Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
+  authDomain: "apuestas-analisis.firebaseapp.com",
+  projectId: "apuestas-analisis",
+  storageBucket: "apuestas-analisis.firebasestorage.app",
+  messagingSenderId: "542021066839",
+  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const ref = db.collection("equipos");
+
+// ➕ Agregar partido (FIFO 10)
+async function agregarPartido(){
+  const nombre = equipo.value.trim();
+  if(!nombre) return alert("Falta el equipo");
+
+  const partido = {
+    fecha: new Date(),
+    rival: rival.value,
+    competencia: competencia.value,
+    local: local.value === "true",
+    stats:{
+      tt:+tt.value,
+      tap:+tap.value,
+      cor:+cor.value,
+      tar:+tar.value,
+      gol:+gol.value
+    }
+  };
+
+  const q = await ref.where("nombre","==",nombre).get();
+
+  if(q.empty){
+    await ref.add({ nombre, partidos:[partido] });
+  }else{
+    const doc = q.docs[0];
+    let partidos = doc.data().partidos || [];
+    partidos.unshift(partido);        // nuevo arriba
+    partidos = partidos.slice(0,10);  // solo últimos 10
+    await ref.doc(doc.id).update({ partidos });
+  }
+}
+
+// 🎯 Probabilidad real
+function prob(partidos, stat, linea){
+  let over=0;
+  partidos.forEach(p=>{
+    if(p.stats[stat] > linea) over++;
+  });
+  const pct = Math.round((over/partidos.length)*100);
+  let c="red";
+  if(pct>65) c="green";
+  else if(pct>=55) c="yellow";
+  return `<span class="prob ${c}">OVER ${linea} (${pct}%)</span>`;
+}
+
+// 📡 Render
+ref.onSnapshot(snap=>{
+  const h=document.getElementById("historial");
+  h.innerHTML="";
+
+  snap.forEach(d=>{
+    const e=d.data();
+    const p=e.partidos||[];
+    if(!p.length) return;
+
+    let tot={tt:0,tap:0,cor:0,tar:0,gol:0};
+    p.forEach(x=>{
+      tot.tt+=x.stats.tt;
+      tot.tap+=x.stats.tap;
+      tot.cor+=x.stats.cor;
+      tot.tar+=x.stats.tar;
+      tot.gol+=x.stats.gol;
+    });
+    const n=p.length;
+
+    h.innerHTML+=`
+    <details class="card">
+    <summary>⚽ ${e.nombre} (${n} partidos)</summary>
+
+    <table class="table">
+    <thead>
+      <tr>
+        <th>Rival</th><th>L/V</th><th>TT</th><th>AP</th>
+        <th>COR</th><th>TAR</th><th>GOL</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${p.map(x=>`
+      <tr>
+        <td>${x.rival}</td>
+        <td>${x.local?"L":"V"}</td>
+        <td>${x.stats.tt}</td>
+        <td>${x.stats.tap}</td>
+        <td>${x.stats.cor}</td>
+        <td>${x.stats.tar}</td>
+        <td>${x.stats.gol}</td>
+      </tr>`).join("")}
+    </tbody>
+    <tfoot>
+      <tr><th>PROM</th><th></th>
+        <th>${(tot.tt/n).toFixed(1)}</th>
+        <th>${(tot.tap/n).toFixed(1)}</th>
+        <th>${(tot.cor/n).toFixed(1)}</th>
+        <th>${(tot.tar/n).toFixed(1)}</th>
+        <th>${(tot.gol/n).toFixed(1)}</th>
+      </tr>
+      <tr><th>PROB</th><th></th>
+        <th>${prob(p,"tt",10)}</th>
+        <th>${prob(p,"tap",4)}</th>
+        <th>${prob(p,"cor",4.5)}</th>
+        <th>${prob(p,"tar",3.5)}</th>
+        <th>${prob(p,"gol",1.5)}</th>
+      </tr>
+    </tfoot>
+    </table>
+    </details>`;
+  });
+});
+
+function volver(){
+  window.location.href="index.html";
+}
+</script>
+
+</body>
+</html>
