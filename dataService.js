@@ -97,43 +97,58 @@ async function getTeamData(teamName, leagueId){
 // ===============================
 async function fetchTeamFromApi(teamName, leagueId){
   try{
-    // 1️⃣ Buscar equipo
+    // 1️⃣ Buscar equipo correcto
     const teamRes = await fetch(
-      `${WORKER_URL}?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
+    );
+    const teamData = await teamRes.json();
+
+    const team = teamData.response.find(t =>
+      t.team.name === teamName && t.team.country === "Spain"
     );
 
-    const teamData = await teamRes.json();
-    if(!teamData.response?.length) return [];
+    if(!team) return [];
 
-    const teamId = teamData.response[0].team.id;
+    const teamId = team.team.id;
 
-    // 2️⃣ Últimos 10 partidos del equipo
+    // 2️⃣ Obtener últimos 10 partidos FINALIZADOS
     const fixRes = await fetch(
-      `${WORKER_URL}?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
     );
 
     const fixData = await fixRes.json();
     if(!fixData.response?.length) return [];
 
-    // 💡 Mapear a nuestro formato
-    const result = fixData.response.map(f => {
+    const partidos = [];
+
+    // 3️⃣ Obtener estadísticas POR PARTIDO
+    for(const f of fixData.response){
+      const statRes = await fetch(
+        `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`
+      );
+
+      const statData = await statRes.json();
+      const statsTeam = statData.response?.find(s => s.team.id === teamId);
+
+      if(!statsTeam) continue;
+
       const isHome = f.teams.home.id === teamId;
 
-      return {
+      partidos.push({
         fecha: f.fixture.date,
         rival: isHome ? f.teams.away.name : f.teams.home.name,
         local: isHome,
-        stats: {
-          tt: 0,     // no disponible en plan FREE
-          tap: 0,    // no disponible en plan FREE
-          cor: 0,    // no disponible en plan FREE
-          tar: 0,    // no disponible en plan FREE
+        stats:{
+          tt: statsTeam.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
+          tap: statsTeam.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
+          cor: statsTeam.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
+          tar: statsTeam.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0,
           gol: isHome ? f.goals.home : f.goals.away
         }
-      };
-    });
+      });
+    }
 
-    return result;
+    return partidos;
 
   }catch(e){
     console.error("❌ API error", e);
