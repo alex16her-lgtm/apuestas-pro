@@ -1,4 +1,3 @@
-<script>
 // ===============================
 // 🔥 FIREBASE CONFIG
 // ===============================
@@ -158,4 +157,4 @@ function probabilidadOver(partidos, stat, linea){
     pick: pct>=50 ? `OVER ${linea}` : `UNDER ${linea}`
   };
 }
-</script>
+
