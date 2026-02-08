@@ -37,19 +37,19 @@ async function registerRequest(){
 }
 
 /*************************************************
- * 🌐 PROXY HELPER (LA SOLUCIÓN)
+ * 🌐 PROXY HELPER (BASE 64)
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
-// Esta función protege la URL para que no se rompa el '&'
+// 🔥 MAGIA AQUÍ: Encriptamos la URL para que no se rompa
 async function fetchFromProxy(targetApiUrl) {
-  // 1. Codificamos la URL completa
-  const encodedUrl = encodeURIComponent(targetApiUrl);
+  // Convertimos la URL a Base64 (El "sobre cerrado")
+  const base64Url = btoa(targetApiUrl);
   
-  // 2. Construimos la URL del proxy
-  const finalProxyUrl = `${WORKER_URL}?url=${encodedUrl}`;
+  // La enviamos al worker usando el parámetro ?base64=
+  const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
 
-  console.log(`📡 Llamando al Proxy: ${targetApiUrl}`); // Log para verificar
+  console.log(`📡 Enviando sobre cerrado al Proxy...`); 
   
   const res = await fetch(finalProxyUrl);
   return await res.json();
@@ -74,7 +74,7 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (Simplificada)
+ * 🧠 2. FUNCIÓN PRINCIPAL
  *************************************************/
 async function getTeamData(teamName){
   console.log(`🚀 Iniciando para: ${teamName}`);
@@ -97,24 +97,15 @@ async function getTeamData(teamName){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (Usamos 'last=5' que es más seguro y rápido)
-  // Nota: Al usar la función fetchFromProxy, el '&' viajará seguro.
+  // D. OBTENER PARTIDOS (Ahora sí funcionará Last 5)
+  // Al ir en Base64, el '&' llegará intacto a la API
   const urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5&status=FT`;
   
   const fixData = await fetchFromProxy(urlFixtures);
 
   if(!fixData.response || !fixData.response.length){
     console.warn("⚠️ API devolvió 0 partidos. Respuesta:", fixData);
-    // Intento de emergencia: buscar temporada pasada si 'last' falla
-    console.log("🔄 Intentando buscar por temporada 2023...");
-    const urlBackup = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT&last=5`;
-    const backupData = await fetchFromProxy(urlBackup);
-    
-    if(!backupData.response || !backupData.response.length){
-        console.error("❌ Definitivamente sin datos.");
-        return [];
-    }
-    fixData.response = backupData.response;
+    return [];
   }
 
   const partidos = [];
@@ -124,7 +115,6 @@ async function getTeamData(teamName){
   for(const f of fixData.response){
     const fixtureId = f.fixture.id;
     
-    // Llamada segura al proxy
     const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`);
     
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
@@ -146,7 +136,7 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pausa anti-bloqueo
+    // Pausa técnica
     await new Promise(r => setTimeout(r, 300));
   }
 
