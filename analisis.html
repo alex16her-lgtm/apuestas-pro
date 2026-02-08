@@ -410,21 +410,24 @@ function irApuestas(){
 function irEquipos(){
   window.location.href = "equipos.html";
 }
-  async function analizarFormaEquipos(){
+async function analizarFormaEquipos(){
   const equipoA = teamA.value.trim();
   const equipoB = teamB.value.trim();
-
-
-
+  
+  // 1. Validamos que haya equipos escritos
   if(!equipoA || !equipoB) return;
 
   const cont = document.getElementById("formaEquipos");
   cont.innerHTML = "⏳ Analizando últimos partidos…";
 
-  // 🔥 API + cache
-  const dataA = await getTeamData(equipoA, ligaId);
-  const dataB = await getTeamData(equipoB, ligaId);
+  // 🔴 AQUÍ ESTABA EL ERROR
+  // Antes tenías: await getTeamData(equipoA, ligaId);
+  // Como borraste la variable ligaId, debes borrarla aquí también:
+  
+  const dataA = await getTeamData(equipoA); 
+  const dataB = await getTeamData(equipoB);
 
+  // 2. Renderizamos (mostramos) los datos
   cont.innerHTML = `
     ${renderEquipo(equipoA, dataA)}
     ${renderEquipo(equipoB, dataB)}
