@@ -96,51 +96,48 @@ async function getTeamData(teamName){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (Temporada Completa)
+  // D. OBTENER PARTIDOS (Temporada 2024 -> 2023)
   let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&status=FT`;
   let fixData = await fetchFromProxy(urlFixtures);
 
-  // Fallback a 2023
   if(!fixData.response || !fixData.response.length){
+    console.warn("⚠️ Temp 2024 vacía, probando 2023...");
     urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT`;
     fixData = await fetchFromProxy(urlFixtures);
   }
 
-  if(!fixData.response || !fixData.response.length){
-    console.error("❌ Sin partidos.");
-    return [];
-  }
+  if(!fixData.response || !fixData.response.length) return [];
 
   // E. FILTRAR Y ORDENAR
-  let todosLosPartidos = fixData.response;
+  let todos = fixData.response.filter(p => ['FT','AET','PEN'].includes(p.fixture.status.short));
+  todos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
-  // Solo terminados y ordenados por fecha
-  const terminados = todosLosPartidos.filter(p => 
-    ['FT', 'AET', 'PEN'].includes(p.fixture.status.short)
-  );
-  terminados.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
-  
-  const ultimos10 = terminados.slice(0, 10);
+  const ultimos10 = todos.slice(0, 10);
   const partidos = [];
+
+  console.log(`🎫 Procesando ${ultimos10.length} partidos...`);
 
   // F. DETALLE ESTADÍSTICAS
   for(const f of ultimos10){
-    const fixtureId = f.fixture.id;
-    const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`);
-    
+    const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`);
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
-    // 🔥 CORRECCIÓN: Aseguramos que sea un número (Number) y si es null ponemos 0
-    const getVal = (type) => {
+    // 🔥 FUNCIÓN PARA EXTRAER VALOR SEGURO
+    const getRaw = (name) => {
         if(!statsTeam) return 0;
-        const item = statsTeam.statistics.find(x => x.type === type);
-        // Algunos stats vienen como null, o "50%", etc.
-        if (item && item.value !== null) {
-            return Number(item.value) || 0; 
-        }
-        return 0;
+        const item = statsTeam.statistics.find(x => x.type === name);
+        return (item && item.value !== null) ? Number(item.value) : 0;
     };
+
+    // 🔥 CÁLCULO INTELIGENTE DE TIROS TOTALES (TT)
+    // A veces la API trae "Shots total", a veces "Total Shots", a veces nada.
+    let totalShots = getRaw("Shots total") || getRaw("Total Shots");
     
+    // Si sigue siendo 0, lo calculamos manualmente: (A Puerta + Fuera + Bloqueados)
+    if (totalShots === 0) {
+        totalShots = getRaw("Shots on Goal") + getRaw("Shots off Goal") + getRaw("Blocked Shots");
+    }
+
     const isHome = f.teams.home.id === teamId;
 
     partidos.push({
@@ -148,18 +145,18 @@ async function getTeamData(teamName){
       rival: isHome ? f.teams.away.name : f.teams.home.name,
       local: isHome,
       stats: {
-        tt: getVal("Shots total"),
-        tap: getVal("Shots on Goal"),
-        cor: getVal("Corner Kicks"),
-        tar: getVal("Yellow Cards"),
+        tt: totalShots, // <--- Aquí va el valor corregido
+        tap: getRaw("Shots on Goal"),
+        cor: getRaw("Corner Kicks"),
+        tar: getRaw("Yellow Cards") + getRaw("Red Cards"), // Sumamos rojas por si acaso
         gol: isHome ? f.goals.home : f.goals.away
       }
     });
 
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 250));
   }
 
-  // G. GUARDAR
+  // G. GUARDAR EN CACHÉ
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
