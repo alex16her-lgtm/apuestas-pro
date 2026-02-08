@@ -81,52 +81,63 @@ async function getTeamData(teamName, leagueId){
   await registerRequest();
 
   return partidos;
+  
+  if (!partidos.length) {
+  console.warn("⚠️ No se guarda cache vacío");
+  return [];
+}
+
 }
 
 // ===============================
 // 📡 FETCH API-FOOTBALL
 // ===============================
+
 async function fetchTeamFromApi(teamName, leagueId){
-  try {
+  try{
     // 1️⃣ Buscar equipo
     const teamRes = await fetch(
       `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
     );
     const teamData = await teamRes.json();
-    if (!teamData.response?.length) return [];
+    if(!teamData.response?.length) return [];
 
     const teamId = teamData.response[0].team.id;
 
     // 2️⃣ Últimos 10 partidos
     const fixRes = await fetch(
-      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10`
     );
     const fixData = await fixRes.json();
-    if (!fixData.response?.length) return [];
+    if(!fixData.response?.length) return [];
+
+    console.log("📊 FIXTURES RAW:", fixData.response);
 
     return fixData.response
       .map(f => {
         const isHome = f.teams.home.id === teamId;
 
-        const statsTeam = f.statistics?.find(s => s.team.id === teamId);
+        const statsTeam = f.statistics?.find(
+          s => s.team.id === teamId
+        );
         if (!statsTeam) return null;
 
         return {
           fecha: f.fixture.date,
           rival: isHome ? f.teams.away.name : f.teams.home.name,
           local: isHome,
-          stats: {
-            tt: Number(statsTeam.statistics.find(x => x.type === "Shots total")?.value) || 0,
-            tap: Number(statsTeam.statistics.find(x => x.type === "Shots on Goal")?.value) || 0,
-            cor: Number(statsTeam.statistics.find(x => x.type === "Corner Kicks")?.value) || 0,
-            tar: Number(statsTeam.statistics.find(x => x.type === "Yellow Cards")?.value) || 0,
+          stats:{
+            tt: statsTeam.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
+            tap: statsTeam.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
+            cor: statsTeam.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
+            tar: statsTeam.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0,
             gol: isHome ? f.goals.home : f.goals.away
           }
         };
       })
       .filter(Boolean);
 
-  } catch (e) {
+  }catch(e){
     console.error("❌ API error", e);
     return [];
   }
