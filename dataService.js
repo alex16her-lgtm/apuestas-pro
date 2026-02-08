@@ -91,6 +91,20 @@ async function getTeamData(teamName, leagueId){
 
   return partidos;
 }
+async function getTeamIdByName(teamName) {
+  const url = `${WORKER_URL}?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (!data.response || data.response.length === 0) {
+    console.warn("❌ No se encontró el equipo:", teamName);
+    return null;
+  }
+
+  return data.response[0].team.id;
+}
+
 
 // ===============================
 // 📡 FETCH API-FOOTBALL (vía Worker)
