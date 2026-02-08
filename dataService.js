@@ -19,7 +19,7 @@ const db = firebase.firestore();
 // ===============================
 // 🔐 CONTROL DE REQUESTS (FREE)
 // ===============================
-const MAX_REQUESTS_DIA = 100; // API-Football Free
+const MAX_REQUESTS_DIA = 100;
 
 async function canMakeRequest(){
   const today = new Date().toISOString().slice(0,10);
@@ -41,8 +41,11 @@ async function registerRequest(){
     count: firebase.firestore.FieldValue.increment(1)
   });
 }
-const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
+// ===============================
+// 🛠 WORKER PROXY
+// ===============================
+const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev/";
 
 // ===============================
 // 🧠 CACHE DE EQUIPOS (FIREBASE)
@@ -55,7 +58,7 @@ async function getTeamData(teamName, leagueId){
   if(cache.exists){
     const last = cache.data().updated?.toDate();
     const diff = (Date.now() - last.getTime()) / 1000 / 60 / 60;
-    if(diff < 12){
+    if(diff < 12 && cache.data().partidos?.length){
       console.log("📦 Cache usado:", teamName);
       return cache.data().partidos;
     }
@@ -71,6 +74,12 @@ async function getTeamData(teamName, leagueId){
   // 🌍 Llamada API
   const partidos = await fetchTeamFromApi(teamName, leagueId);
 
+  // No guardar cache si no hay datos
+  if(!partidos.length){
+    console.warn("⚠️ API no devolvió datos para", teamName);
+    return [];
+  }
+
   await cacheRef.set({
     team: teamName,
     league: leagueId,
@@ -81,60 +90,56 @@ async function getTeamData(teamName, leagueId){
   await registerRequest();
 
   return partidos;
-  
-  if (!partidos.length) {
-  console.warn("⚠️ No se guarda cache vacío");
-  return [];
-}
-
 }
 
 // ===============================
-// 📡 FETCH API-FOOTBALL
+// 📡 FETCH API-FOOTBALL (vía Worker)
 // ===============================
 async function fetchTeamFromApi(teamName, leagueId){
   try{
+    // 1️⃣ Buscar equipo
     const teamRes = await fetch(
-      `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
+      `${WORKER_URL}?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
     );
+
     const teamData = await teamRes.json();
     if(!teamData.response?.length) return [];
 
     const teamId = teamData.response[0].team.id;
 
+    // 2️⃣ Últimos 10 partidos del equipo
     const fixRes = await fetch(
-      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
+      `${WORKER_URL}?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
     );
+
     const fixData = await fixRes.json();
     if(!fixData.response?.length) return [];
 
-    return fixData.response.map(f => {
+    // 💡 Mapear a nuestro formato
+    const result = fixData.response.map(f => {
       const isHome = f.teams.home.id === teamId;
-
-      const statsTeam = f.statistics?.find(
-        s => s.team.id === teamId
-      );
 
       return {
         fecha: f.fixture.date,
         rival: isHome ? f.teams.away.name : f.teams.home.name,
         local: isHome,
-        stats:{
-          tt: statsTeam?.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
-          tap: statsTeam?.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
-          cor: statsTeam?.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
-          tar: statsTeam?.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0,
+        stats: {
+          tt: 0,     // no disponible en plan FREE
+          tap: 0,    // no disponible en plan FREE
+          cor: 0,    // no disponible en plan FREE
+          tar: 0,    // no disponible en plan FREE
           gol: isHome ? f.goals.home : f.goals.away
         }
       };
     });
+
+    return result;
 
   }catch(e){
     console.error("❌ API error", e);
     return [];
   }
 }
-
 
 // ===============================
 // 🧮 UTILIDADES
@@ -160,6 +165,7 @@ function probabilidadOver(partidos, stat, linea){
     pick: pct>=50 ? `OVER ${linea}` : `UNDER ${linea}`
   };
 }
+
 // ===============================
 // 🌍 EXPORTAR FIRESTORE GLOBAL
 // ===============================
