@@ -59,7 +59,6 @@ async function getTeamIdByName(teamName){
     // DETECTOR DE LÍMITES
     if(data.errors && Object.keys(data.errors).length > 0){
         console.error("🚨 ERROR API:", data.errors);
-        // Si es error de límite, devolvemos null para detener todo
         if(JSON.stringify(data.errors).includes("limit")){
              alert("⚠️ API: Límite de peticiones alcanzado. Espera 1 minuto o intenta mañana.");
         }
@@ -78,22 +77,30 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (Versión Definitiva V4)
+ * 🧠 2. FUNCIÓN PRINCIPAL (Versión 2026/2025)
  *************************************************/
-async function getTeamData(teamName){
-  console.log(`🚀 Iniciando para: ${teamName}`);
+async function getTeamData(teamName, forceUpdate = false){
+  const currentYear = new Date().getFullYear(); // 2026
+  const prevYear = currentYear - 1; // 2025
 
-  // A. CACHÉ V4 (🔥 CAMBIADO A V4 PARA FORZAR DATOS NUEVOS)
-  const cacheRef = db.collection("cache_equipos").doc(`${teamName.replace(/\s+/g, '_')}_v4`);
-  const cache = await cacheRef.get();
+  console.log(`🚀 Iniciando para: ${teamName} | Años: ${currentYear}-${prevYear}`);
+
+  // A. CACHÉ V5 (Nueva versión para borrar datos viejos del 2024)
+  const cacheKey = `${teamName.replace(/\s+/g, '_')}_v5`;
+  const cacheRef = db.collection("cache_equipos").doc(cacheKey);
   
-  if(cache.exists){
-    const last = cache.data().updated?.toDate();
-    // Cache válido solo por 6 horas para asegurar datos recientes
-    if(last && (Date.now() - last.getTime()) / 36e5 < 6 && cache.data().partidos?.length){
-      console.log("📦 Desde Caché (Datos recientes)");
-      return cache.data().partidos;
+  if(!forceUpdate){
+    const cache = await cacheRef.get();
+    if(cache.exists){
+      const last = cache.data().updated?.toDate();
+      // Cache válido por 6 horas
+      if(last && (Date.now() - last.getTime()) / 36e5 < 6 && cache.data().partidos?.length){
+        console.log("📦 Usando memoria guardada (Ahorrando API)");
+        return cache.data().partidos;
+      }
     }
+  } else {
+    console.warn("🔄 Forzando actualización...");
   }
 
   // B. VALIDAR LÍMITES
@@ -103,27 +110,28 @@ async function getTeamData(teamName){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (Lógica para obtener los más recientes)
-  // 1. Pedimos TOOOODA la temporada 2024
-  let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&status=FT`;
+  // D. OBTENER PARTIDOS (Dinámico: 2026 -> 2025)
+  
+  // 1. Intentamos año ACTUAL (2026)
+  let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${currentYear}&status=FT`;
   let fixData = await fetchFromProxy(urlFixtures);
 
-  // Fallback a 2023 si no hay nada en 2024
+  // 2. Si 2026 está vacío (ej: ligas europeas que cuentan como temporada 2025), probamos 2025
   if(!fixData.response || !fixData.response.length){
-    console.warn("⚠️ Temp 2024 vacía, probando 2023...");
-    urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT`;
+    console.warn(`⚠️ Temp ${currentYear} vacía, probando ${prevYear}...`);
+    urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${prevYear}&status=FT`;
     fixData = await fetchFromProxy(urlFixtures);
   }
 
-  if(!fixData.response || !fixData.response.length) return [];
+  if(!fixData.response || !fixData.response.length) {
+    console.error("❌ Sin partidos en ningún año reciente.");
+    return [];
+  }
 
-  // E. ORDENAR POR FECHA (LA CLAVE PARA "LO MÁS RECIENTE") 📅
+  // E. ORDENAR POR FECHA (Más reciente arriba)
   let todos = fixData.response.filter(p => ['FT','AET','PEN'].includes(p.fixture.status.short));
-  
-  // Orden descendente: La fecha más nueva va primero
   todos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
-  // Tomamos los 10 primeros (que son los más recientes)
   const ultimos10 = todos.slice(0, 10);
   const partidos = [];
 
@@ -141,18 +149,15 @@ async function getTeamData(teamName){
         return (item && item.value !== null) ? Number(item.value) : 0;
     };
 
-    // 🔥 CÁLCULO DE TIROS SUPER ROBUSTO
+    // 🔥 CÁLCULO DE TIROS ROBUSTO
     let totalShots = getVal("Shots total") || getVal("Total Shots");
-
     if (totalShots === 0) totalShots = getVal("Goal Attempts");
     if (totalShots === 0) totalShots = getVal("Shots on Goal") + getVal("Shots off Goal") + getVal("Blocked Shots");
-    if (totalShots === 0) totalShots = getVal("Shots insidebox") + getVal("Shots outsidebox");
 
     const isHome = f.teams.home.id === teamId;
     const rivalName = isHome ? f.teams.away.name : f.teams.home.name;
 
-    // Log para verificar fechas
-    console.log(`📅 ${f.fixture.date.slice(0,10)} vs ${rivalName} | Tiros: ${totalShots}`);
+    console.log(`📅 ${f.fixture.date.slice(0,10)} vs ${rivalName}`);
 
     partidos.push({
       fecha: f.fixture.date,
@@ -167,11 +172,11 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pausa de 400ms para evitar el error "Too many requests per minute"
+    // Pausa técnica
     await new Promise(r => setTimeout(r, 400));
   }
 
-  // G. GUARDAR EN CACHÉ V4
+  // G. GUARDAR EN CACHÉ V5
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
