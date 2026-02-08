@@ -182,19 +182,6 @@ button{
 </div>
 <script src="dataService.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
-  authDomain: "apuestas-analisis.firebaseapp.com",
-  projectId: "apuestas-analisis",
-  storageBucket: "apuestas-analisis.firebasestorage.app",
-  messagingSenderId: "542021066839",
-  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const ref = db.collection("analisis");
- 
   
 function overUnder(valorTotal, linea){
   if (isNaN(valorTotal)) return "-";
