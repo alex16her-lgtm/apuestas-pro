@@ -100,9 +100,8 @@ async function getTeamData(teamName){
   let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&status=FT`;
   let fixData = await fetchFromProxy(urlFixtures);
 
-  // Fallback a 2023 si 2024 está vacío
+  // Fallback a 2023
   if(!fixData.response || !fixData.response.length){
-    console.warn("⚠️ Temporada 2024 vacía, intentando 2023...");
     urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT`;
     fixData = await fetchFromProxy(urlFixtures);
   }
@@ -115,30 +114,32 @@ async function getTeamData(teamName){
   // E. FILTRAR Y ORDENAR
   let todosLosPartidos = fixData.response;
   
-  // 1. Asegurar que sean partidos TERMINADOS (FT, AET, PEN)
+  // Solo terminados y ordenados por fecha
   const terminados = todosLosPartidos.filter(p => 
     ['FT', 'AET', 'PEN'].includes(p.fixture.status.short)
   );
-
-  // 2. Ordenar por fecha (Más reciente primero)
   terminados.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
-  // 3. Tomar los 10 últimos
   const ultimos10 = terminados.slice(0, 10);
-  
   const partidos = [];
-  console.log(`🎫 Procesando stats de los últimos ${ultimos10.length} partidos...`);
 
   // F. DETALLE ESTADÍSTICAS
   for(const f of ultimos10){
     const fixtureId = f.fixture.id;
-    
     const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`);
     
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
-    // Helper seguro para obtener valor
-    const getVal = (type) => statsTeam ? (statsTeam.statistics.find(x => x.type === type)?.value || 0) : 0;
+    // 🔥 CORRECCIÓN: Aseguramos que sea un número (Number) y si es null ponemos 0
+    const getVal = (type) => {
+        if(!statsTeam) return 0;
+        const item = statsTeam.statistics.find(x => x.type === type);
+        // Algunos stats vienen como null, o "50%", etc.
+        if (item && item.value !== null) {
+            return Number(item.value) || 0; 
+        }
+        return 0;
+    };
     
     const isHome = f.teams.home.id === teamId;
 
@@ -155,7 +156,6 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pausa pequeña para no saturar
     await new Promise(r => setTimeout(r, 200));
   }
 
@@ -168,7 +168,6 @@ async function getTeamData(teamName){
     });
     await registerRequest();
   }
-
   console.log("✅ Datos procesados correctamente.");
   return partidos;
 }
