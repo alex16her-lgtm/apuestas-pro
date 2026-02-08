@@ -10,11 +10,16 @@ const firebaseConfig = {
   appId: "1:542021066839:web:bb6a43f578a39d07c68312"
 };
 
+// Inicializar solo si no existe
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
 const db = firebase.firestore();
+
+// 🔴 ARREGLO 1: Exportar la referencia que busca tu HTML
+// Asegúrate de que "analisis_partidos" es el nombre de tu colección en Firebase
+window.refAnalisis = db.collection("analisis_partidos"); 
 
 /*************************************************
  * 🔐 CONTROL DE REQUESTS (API FREE)
@@ -47,127 +52,119 @@ async function registerRequest(){
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
 /*************************************************
- * 🧠 OBTENER TEAM ID POR NOMBRE
+ * 🧠 OBTENER TEAM ID
  *************************************************/
 async function getTeamIdByName(teamName){
-  const res = await fetch(
-    `${WORKER_URL}?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
-  );
-
-  const data = await res.json();
-
-  if(!data.response || !data.response.length){
-    console.warn("❌ Equipo no encontrado:", teamName);
+  try {
+    const res = await fetch(
+      `${WORKER_URL}?url=${encodeURIComponent(`https://v3.football.api-sports.io/teams?search=${teamName}`)}`
+    );
+    const data = await res.json();
+    
+    if(!data.response || !data.response.length){
+      console.warn("❌ Equipo no encontrado:", teamName);
+      return null;
+    }
+    return data.response[0].team.id;
+  } catch (e) {
+    console.error("Error buscando equipo ID:", e);
     return null;
   }
-
-  return data.response[0].team.id;
 }
 
 /*************************************************
- * 🧠 OBTENER ÚLTIMOS 10 PARTIDOS DE UN EQUIPO
+ * 🧠 OBTENER ÚLTIMOS 10 PARTIDOS
  *************************************************/
 async function getTeamData(teamName, leagueId){
-  const cacheRef = db.collection("cache_equipos").doc(`${teamName}_${leagueId}`);
+  // 1. Intentar cargar de caché
+  const cacheRef = db.collection("cache_equipos").doc(`${teamName.replace(/\s+/g, '_')}_${leagueId}`);
   const cache = await cacheRef.get();
 
-  // 🟢 Cache válido 12h
   if(cache.exists){
     const last = cache.data().updated?.toDate();
     if(last){
-      const diff = (Date.now() - last.getTime()) / 1000 / 60 / 60;
+      const diff = (Date.now() - last.getTime()) / 1000 / 60 / 60; // Horas
       if(diff < 12 && cache.data().partidos?.length){
-        console.log("📦 Cache usado:", teamName);
+        console.log("📦 Cache usado para:", teamName);
         return cache.data().partidos;
       }
     }
   }
 
+  // 2. Verificar límites
   if(!(await canMakeRequest())){
-    alert("⚠️ Límite diario de API alcanzado");
+    console.warn("⚠️ Límite diario de API alcanzado");
     return [];
   }
 
+  // 3. Buscar ID y Datos
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  const fixRes = await fetch(
-    `${WORKER_URL}?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
-  );
-
+  // Fetch fixtures (Partidos)
+  const urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=10&status=FT`; // Quitamos league=${leagueId} para traer general si quieres
+  const fixRes = await fetch(`${WORKER_URL}?url=${encodeURIComponent(urlFixtures)}`);
   const fixData = await fixRes.json();
-  if(!fixData.response?.length){
-    console.warn("⚠️ Sin partidos para", teamName);
-    return [];
-  }
+
+  if(!fixData.response?.length) return [];
 
   const partidos = [];
 
+  // 4. Loop para sacar estadísticas (Cuidado con el consumo de API aquí)
+  // Nota: Esto hace 1 llamada por partido. Si traes 10, son 10 llamadas.
   for(const f of fixData.response){
     const statRes = await fetch(
-      `${WORKER_URL}?url=https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`
+      `${WORKER_URL}?url=${encodeURIComponent(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`)}`
     );
-
     const statData = await statRes.json();
+    
+    // Buscar stats de ESTE equipo
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
+    
+    // Si no hay stats detalladas, saltamos o ponemos 0
     if(!statsTeam) continue;
 
-    const isHome = f.teams.home.id === teamId;
+    const getStat = (type) => {
+        const item = statsTeam.statistics.find(x => x.type === type);
+        return item ? (item.value || 0) : 0;
+    };
 
+    const isHome = f.teams.home.id === teamId;
+    const golesFavor = isHome ? f.goals.home : f.goals.away;
+
+    // 🔴 ARREGLO 2: Mapear a las variables que usa tu HTML (tt, tap, cor...)
     partidos.push({
       fecha: f.fixture.date,
       rival: isHome ? f.teams.away.name : f.teams.home.name,
       local: isHome,
-      goles: isHome ? f.goals.home : f.goals.away,
-      stats:{
-        shotsTotal: statsTeam.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
-        shotsOnGoal: statsTeam.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
-        corners: statsTeam.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
-        yellow: statsTeam.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0
+      stats: {
+        tt: getStat("Shots total"),
+        tap: getStat("Shots on Goal"),
+        cor: getStat("Corner Kicks"),
+        tar: getStat("Yellow Cards"), // O Cards Red + Yellow
+        gol: golesFavor
       }
     });
+    
+    // Pequeña pausa para no saturar
+    await new Promise(r => setTimeout(r, 200));
   }
 
+  // 5. Guardar en Caché
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
-      league: leagueId,
       partidos,
       updated: firebase.firestore.FieldValue.serverTimestamp()
     });
-    await registerRequest();
+    await registerRequest(); // Contamos como 1 request "lógica" o puedes contar +10 si prefieres ser estricto
   }
 
   return partidos;
 }
 
 /*************************************************
- * 📊 UTILIDADES
- *************************************************/
-function promedio(partidos, campo){
-  if(!partidos.length) return 0;
-  return (
-    partidos.reduce((a,p)=>a+(p.stats[campo]||0),0) / partidos.length
-  ).toFixed(1);
-}
-
-function probabilidadOver(partidos, campo, linea){
-  if(!partidos.length) return { pct:0, pick:"-" };
-
-  const over = partidos.filter(p => (p.stats[campo]||0) > linea).length;
-  const pct = Math.round((over / partidos.length) * 100);
-
-  return {
-    pct,
-    pick: pct >= 50 ? `OVER ${linea}` : `UNDER ${linea}`
-  };
-}
-
-/*************************************************
- * 🌍 EXPORTAR AL NAVEGADOR
+ * 🌍 EXPORTAR AL WINDOW
  *************************************************/
 window.db = db;
-window.getTeamIdByName = getTeamIdByName;
 window.getTeamData = getTeamData;
-window.promedio = promedio;
-window.probabilidadOver = probabilidadOver;
