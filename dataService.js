@@ -102,14 +102,12 @@ async function fetchTeamFromApi(teamName, leagueId){
       `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
     );
     const teamData = await teamRes.json();
+const team = teamData.response[0];
+if(!team) return [];
 
-    const team = teamData.response.find(t =>
-      t.team.name === teamName && t.team.country === "Spain"
-    );
+const teamId = team.team.id;
 
-    if(!team) return [];
-
-    const teamId = team.team.id;
+ 
 
     // 2️⃣ Obtener últimos 10 partidos FINALIZADOS
     const fixRes = await fetch(
