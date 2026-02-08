@@ -172,8 +172,15 @@ button{
 <div class="card" style="text-align:left">
   <button onclick="irEquipos()">📊 Analisis de equipos</button>
 </div>
-</div>
+  <section class="card">
+  <h2>📊 Forma reciente por equipo (últimos 10)</h2>
 
+  <div id="formaEquipos">
+    <p class="muted">Cargando datos…</p>
+  </div>
+</section>
+</div>
+<script src="dataService.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
@@ -403,6 +410,7 @@ totB.gol += s.gol.B;
       </table>
     </details>`;
   });
+  analizarFormaEquipos();
 });
  
 
@@ -415,6 +423,75 @@ function irApuestas(){
 function irEquipos(){
   window.location.href = "equipos.html";
 }
+  async function analizarFormaEquipos(){
+  const equipoA = teamA.value.trim();
+  const equipoB = teamB.value.trim();
+ const ligaId = 10; // fijo por ahora, no afecta nada
+
+
+  if(!equipoA || !equipoB) return;
+
+  const cont = document.getElementById("formaEquipos");
+  cont.innerHTML = "⏳ Analizando últimos partidos…";
+
+  // 🔥 API + cache
+  const dataA = await getTeamData(equipoA, ligaId);
+  const dataB = await getTeamData(equipoB, ligaId);
+
+  cont.innerHTML = `
+    ${renderEquipo(equipoA, dataA)}
+    ${renderEquipo(equipoB, dataB)}
+  `;
+}
+  function renderEquipo(nombre, partidos){
+  if(!partidos.length){
+    return `<p>❌ Sin datos para ${nombre}</p>`;
+  }
+
+  const n = partidos.length;
+
+  const avg = stat =>
+    (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
+
+  const prob = (stat, linea) => {
+    let over=0;
+    partidos.forEach(p=>{
+      if((p.stats[stat]||0) > linea) over++;
+    });
+    const pct = Math.round((over/n)*100);
+
+    let c="red";
+    if(pct>65) c="green";
+    else if(pct>=55) c="yellow";
+
+    return `<span class="prob ${c}">${pct}%</span>`;
+  };
+
+  return `
+  <div class="card mini">
+    <h3>⚽ ${nombre}</h3>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Stat</th>
+          <th>Prom</th>
+          <th>Prob</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>TT</td><td>${avg("tt")}</td><td>${prob("tt",10)}</td></tr>
+        <tr><td>AP</td><td>${avg("tap")}</td><td>${prob("tap",4)}</td></tr>
+        <tr><td>COR</td><td>${avg("cor")}</td><td>${prob("cor",4.5)}</td></tr>
+        <tr><td>TAR</td><td>${avg("tar")}</td><td>${prob("tar",3.5)}</td></tr>
+        <tr><td>GOL</td><td>${avg("gol")}</td><td>${prob("gol",1.5)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  `;
+}
+
+
 </script>
 
 
