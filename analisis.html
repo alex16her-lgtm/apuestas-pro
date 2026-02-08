@@ -439,86 +439,64 @@ function renderEquipo(nombre, partidos){
   }
 
   const n = partidos.length;
+  const avg = stat => (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
 
-  // Función para calcular promedio
-  const avg = stat =>
-    (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
-
-  // Función para calcular probabilidad de "OVER" (más de X)
-  const prob = (stat, linea) => {
-    let over=0;
-    partidos.forEach(p=>{
-      if((p.stats[stat]||0) > linea) over++;
-    });
-    const pct = Math.round((over/n)*100);
-
-    let c="red";
-    if(pct>65) c="green";
-    else if(pct>=55) c="yellow";
-
-    return `<span class="prob ${c}">${pct}%</span>`;
-  };
-
-  // 🔥 CREAMOS LA TABLA DETALLADA
-  // Mapeamos cada partido a una fila de tabla HTML
+  // Mapeo de filas
   const filasDetalle = partidos.map(p => {
+    // Formato de fecha corto (DD/MM)
     const fecha = new Date(p.fecha).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
-    const condicion = p.local ? '(L)' : '(V)'; // Local o Visitante
+    const condicion = p.local ? '<span style="color:#fbbf24">L</span>' : '<span style="color:#94a3b8">V</span>';
     
-    // Colorcitos para resultado rápido (opcional, solo visual)
-    const colorGol = p.stats.gol > 0 ? '#dcfce7' : ''; // Verde clarito si metió gol
+    // 🔥 ESTILO VISUAL CORREGIDO
+    // Si hay gol, texto verde brillante. Si no, gris.
+    const estiloGol = p.stats.gol > 0 
+      ? 'color: #4ade80; font-weight: bold; font-size: 1.1em;' // Verde neón
+      : 'color: #64748b;'; // Gris apagado
 
     return `
-      <tr>
+      <tr style="border-bottom: 1px solid #1e293b;">
         <td class="small">${fecha}</td>
         <td class="small" style="text-align:left">${condicion} vs ${p.rival}</td>
-        <td>${p.stats.tt}</td>
-        <td>${p.stats.tap}</td>
-        <td>${p.stats.cor}</td>
-        <td>${p.stats.tar}</td>
-        <td style="background:${colorGol}">${p.stats.gol}</td>
+        <td style="color:#e5e7eb">${p.stats.tt}</td>
+        <td style="color:#94a3b8">${p.stats.tap}</td>
+        <td style="color:#94a3b8">${p.stats.cor}</td>
+        <td style="color:#f87171">${p.stats.tar}</td>
+        <td style="${estiloGol}">${p.stats.gol}</td>
       </tr>
     `;
   }).join("");
 
   return `
   <div class="card">
-    <h3>⚽ ${nombre} (Últimos ${n})</h3>
-
-    <table class="table" style="margin-bottom:15px; border-bottom:2px solid #333">
+    <h3 style="border-left: 4px solid #22c55e; padding-left: 10px;">⚽ ${nombre}</h3>
+    
+    <table class="table" style="margin-bottom:15px;">
       <thead>
-        <tr style="background:#1e293b">
-          <th>Stat</th>
-          <th>Promedio</th>
-          <th>Prob Over</th>
+        <tr style="background:#0f172a; color:#94a3b8;">
+          <th>Tiros</th><th>A Puerta</th><th>Corners</th><th>Goles</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>Tiros Totales</td><td>${avg("tt")}</td><td>${prob("tt", 9.5)} (+9.5)</td></tr>
-        <tr><td>A Puerta</td><td>${avg("tap")}</td><td>${prob("tap", 3.5)} (+3.5)</td></tr>
-        <tr><td>Corners</td><td>${avg("cor")}</td><td>${prob("cor", 4.5)} (+4.5)</td></tr>
-        <tr><td>Tarjetas</td><td>${avg("tar")}</td><td>${prob("tar", 1.5)} (+1.5)</td></tr>
-        <tr><td>Goles</td><td>${avg("gol")}</td><td>${prob("gol", 0.5)} (+0.5)</td></tr>
+        <tr>
+          <td style="font-size:1.2em; font-weight:bold">${avg("tt")}</td>
+          <td style="font-size:1.2em; font-weight:bold">${avg("tap")}</td>
+          <td style="font-size:1.2em; font-weight:bold">${avg("cor")}</td>
+          <td style="font-size:1.2em; font-weight:bold; color:#4ade80">${avg("gol")}</td>
+        </tr>
       </tbody>
     </table>
 
     <details>
-      <summary style="cursor:pointer; color:#22c55e; font-weight:bold; margin-bottom:10px">Ver Detalle Partido a Partido ⬇️</summary>
-      <table class="table">
+      <summary style="cursor:pointer; color:#22c55e; margin:10px 0; font-size:0.9em">
+        Ver últimos ${n} partidos ⬇️
+      </summary>
+      <table class="table" style="width:100%; text-align:center;">
         <thead>
-          <tr style="background:#1e293b">
-            <th>Fecha</th>
-            <th>Rival</th>
-            <th>TT</th>
-            <th>AP</th>
-            <th>COR</th>
-            <th>TAR</th>
-            <th>GOL</th>
+          <tr style="background:#1e293b; color:#cbd5e1;">
+            <th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>TAR</th><th>GOL</th>
           </tr>
         </thead>
-        <tbody>
-          ${filasDetalle}
-        </tbody>
+        <tbody>${filasDetalle}</tbody>
       </table>
     </details>
   </div>
