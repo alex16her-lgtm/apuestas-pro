@@ -15,8 +15,6 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.firestore();
-
-// EXPORTAR REFERENCIA PARA QUE EL HTML LA VEA
 window.refAnalisis = db.collection("analisis_partidos");
 
 /*************************************************
@@ -54,7 +52,6 @@ const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
  *************************************************/
 async function getTeamIdByName(teamName){
   try {
-    // Codificamos la URL interna para que pase limpia por el proxy
     const apiUrl = `https://v3.football.api-sports.io/teams?search=${teamName}`;
     const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(apiUrl)}`;
     
@@ -67,8 +64,6 @@ async function getTeamIdByName(teamName){
       console.warn("❌ Equipo no encontrado:", teamName);
       return null;
     }
-
-    // Tomamos el primer resultado (normalmente es el equipo principal)
     return data.response[0].team.id;
   } catch (e) {
     console.error("Error buscando equipo ID:", e);
@@ -82,7 +77,7 @@ async function getTeamIdByName(teamName){
 async function getTeamData(teamName){
   console.log(`🚀 Iniciando análisis para: ${teamName}`);
 
-  // 1. CACHÉ (Ahorrar API)
+  // 1. CACHÉ
   const cacheRef = db.collection("cache_equipos").doc(`${teamName.replace(/\s+/g, '_')}`);
   const cache = await cacheRef.get();
 
@@ -108,16 +103,18 @@ async function getTeamData(teamName){
   if(!teamId) return [];
 
   // 4. OBTENER PARTIDOS (FIXTURES)
-  // IMPORTANTE: encodeURIComponent asegura que "&last=10" llegue a la API
-  const apiUrl = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=10&status=FT`;
+  // 🔥 CAMBIO CLAVE: Agregamos "season=2024" para obligar a la API a buscar este año
+  const apiUrl = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=10&season=2024&status=FT`;
   const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(apiUrl)}`;
 
-  console.log("📡 Pidiendo partidos a la API...");
+  console.log("📡 Pidiendo partidos a la API (Temporada 2024)...");
+  
   const fixRes = await fetch(proxyUrl);
   const fixData = await fixRes.json();
 
+  // 🔥 DEBUG: Si falla, esto nos dirá por qué en la consola
   if(!fixData.response || !fixData.response.length){
-    console.warn("⚠️ La API no devolvió partidos.");
+    console.warn("⚠️ La API devolvió lista vacía. Respuesta completa:", fixData);
     return [];
   }
 
@@ -128,22 +125,19 @@ async function getTeamData(teamName){
   for(const f of fixData.response){
     const fixtureId = f.fixture.id;
     
-    // Pedir stats específicas de este partido
     const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`;
     const statsProxy = `${WORKER_URL}?url=${encodeURIComponent(statsUrl)}`;
 
     const statRes = await fetch(statsProxy);
     const statData = await statRes.json();
     
-    // Filtrar stats solo de NUESTRO equipo
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
     if(!statsTeam) {
-        console.log(`⚠️ Sin stats detalladas para el partido ${fixtureId}`);
+        // Si falla una stat, continuamos con el siguiente
         continue;
     }
 
-    // Función auxiliar para sacar el valor numérico
     const getStat = (type) => {
         const item = statsTeam.statistics.find(x => x.type === type);
         return item ? (item.value || 0) : 0;
@@ -164,11 +158,11 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pequeña pausa para no saturar tu API (Rate Limit)
+    // Pequeña pausa
     await new Promise(r => setTimeout(r, 400));
   }
 
-  // 6. GUARDAR RESULTADO
+  // 6. GUARDAR
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
@@ -178,7 +172,6 @@ async function getTeamData(teamName){
     await registerRequest();
   }
 
-  console.log("✅ Análisis completado:", partidos);
   return partidos;
 }
 
