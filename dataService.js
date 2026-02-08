@@ -37,21 +37,31 @@ async function registerRequest(){
 }
 
 /*************************************************
- * 🌐 CLOUDFLARE WORKER (PROXY)
+ * 🌐 PROXY HELPER (LA SOLUCIÓN)
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
+
+// Esta función protege la URL para que no se rompa el '&'
+async function fetchFromProxy(targetApiUrl) {
+  // 1. Codificamos la URL completa
+  const encodedUrl = encodeURIComponent(targetApiUrl);
+  
+  // 2. Construimos la URL del proxy
+  const finalProxyUrl = `${WORKER_URL}?url=${encodedUrl}`;
+
+  console.log(`📡 Llamando al Proxy: ${targetApiUrl}`); // Log para verificar
+  
+  const res = await fetch(finalProxyUrl);
+  return await res.json();
+}
 
 /*************************************************
  * 🧠 1. OBTENER TEAM ID
  *************************************************/
 async function getTeamIdByName(teamName){
   try {
-    const apiUrl = `https://v3.football.api-sports.io/teams?search=${teamName}`;
-    const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(apiUrl)}`;
+    const data = await fetchFromProxy(`https://v3.football.api-sports.io/teams?search=${teamName}`);
     
-    const res = await fetch(proxyUrl);
-    const data = await res.json();
-
     if(!data.response || !data.response.length){
       console.warn("❌ Equipo no encontrado:", teamName);
       return null;
@@ -64,27 +74,12 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. OBTENER LISTA DE PARTIDOS (Con Fallback)
- *************************************************/
-async function fetchFixtures(teamId, season) {
-  // Pedimos la temporada completa, sin filtro "last" para evitar errores
-  const apiUrl = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${season}&status=FT`;
-  const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(apiUrl)}`;
-  
-  console.log(`📡 Buscando partidos temporada ${season}...`);
-  const res = await fetch(proxyUrl);
-  const data = await res.json();
-  
-  return data.response || [];
-}
-
-/*************************************************
- * 🧠 3. FUNCIÓN PRINCIPAL
+ * 🧠 2. FUNCIÓN PRINCIPAL (Simplificada)
  *************************************************/
 async function getTeamData(teamName){
   console.log(`🚀 Iniciando para: ${teamName}`);
 
-  // --- A. CACHÉ ---
+  // A. CACHÉ
   const cacheRef = db.collection("cache_equipos").doc(`${teamName.replace(/\s+/g, '_')}`);
   const cache = await cacheRef.get();
   if(cache.exists){
@@ -95,42 +90,42 @@ async function getTeamData(teamName){
     }
   }
 
+  // B. VALIDAR LÍMITES
   if(!(await canMakeRequest())) return [];
 
-  // --- B. BUSCAR ID ---
+  // C. OBTENER ID
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // --- C. BUSCAR PARTIDOS (INTENTO 2024 -> INTENTO 2023) ---
-  let fixtures = await fetchFixtures(teamId, 2024);
+  // D. OBTENER PARTIDOS (Usamos 'last=5' que es más seguro y rápido)
+  // Nota: Al usar la función fetchFromProxy, el '&' viajará seguro.
+  const urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5&status=FT`;
   
-  if (fixtures.length === 0) {
-    console.warn("⚠️ Temporada 2024 vacía, intentando 2023...");
-    fixtures = await fetchFixtures(teamId, 2023);
-  }
+  const fixData = await fetchFromProxy(urlFixtures);
 
-  if (fixtures.length === 0) {
-    console.error("❌ No se encontraron partidos en 2023 ni 2024.");
-    return [];
-  }
-
-  // --- D. FILTRAR LOS ÚLTIMOS 10 (MANUALMENTE) ---
-  // Ordenamos por fecha descendente (el más reciente primero)
-  fixtures.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
-  
-  // Tomamos solo los 10 primeros
-  const ultimos10 = fixtures.slice(0, 10);
-  const partidos = [];
-
-  console.log(`🎫 Procesando estadísticas de ${ultimos10.length} partidos...`);
-
-  // --- E. DETALLE ESTADÍSTICAS ---
-  for(const f of ultimos10){
-    const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`;
-    const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(statsUrl)}`;
+  if(!fixData.response || !fixData.response.length){
+    console.warn("⚠️ API devolvió 0 partidos. Respuesta:", fixData);
+    // Intento de emergencia: buscar temporada pasada si 'last' falla
+    console.log("🔄 Intentando buscar por temporada 2023...");
+    const urlBackup = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT&last=5`;
+    const backupData = await fetchFromProxy(urlBackup);
     
-    const statRes = await fetch(proxyUrl);
-    const statData = await statRes.json();
+    if(!backupData.response || !backupData.response.length){
+        console.error("❌ Definitivamente sin datos.");
+        return [];
+    }
+    fixData.response = backupData.response;
+  }
+
+  const partidos = [];
+  console.log(`🎫 Procesando ${fixData.response.length} partidos...`);
+
+  // E. DETALLE ESTADÍSTICAS
+  for(const f of fixData.response){
+    const fixtureId = f.fixture.id;
+    
+    // Llamada segura al proxy
+    const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`);
     
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     if(!statsTeam) continue;
@@ -152,10 +147,10 @@ async function getTeamData(teamName){
     });
 
     // Pausa anti-bloqueo
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  // --- F. GUARDAR ---
+  // F. GUARDAR
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
