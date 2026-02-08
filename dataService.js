@@ -41,16 +41,11 @@ async function registerRequest(){
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
-// 🔥 MAGIA AQUÍ: Encriptamos la URL para que no se rompa
+// Usamos Base64 para pasar URL complejas sin que Cloudflare las rompa
 async function fetchFromProxy(targetApiUrl) {
-  // Convertimos la URL a Base64 (El "sobre cerrado")
   const base64Url = btoa(targetApiUrl);
-  
-  // La enviamos al worker usando el parámetro ?base64=
   const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
-
-  console.log(`📡 Enviando sobre cerrado al Proxy...`); 
-  
+  console.log(`📡 Solicitando: ${targetApiUrl}`); // Log limpio
   const res = await fetch(finalProxyUrl);
   return await res.json();
 }
@@ -74,7 +69,7 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL
+ * 🧠 2. FUNCIÓN PRINCIPAL (Lógica Plan Gratis)
  *************************************************/
 async function getTeamData(teamName){
   console.log(`🚀 Iniciando para: ${teamName}`);
@@ -97,30 +92,46 @@ async function getTeamData(teamName){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (Ahora sí funcionará Last 5)
-  // Al ir en Base64, el '&' llegará intacto a la API
-  const urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5&status=FT`;
-  
-  const fixData = await fetchFromProxy(urlFixtures);
+  // D. OBTENER PARTIDOS (SIN usar 'last', pidiendo temporada completa)
+  // Probamos primero temporada 2024
+  let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&status=FT`;
+  let fixData = await fetchFromProxy(urlFixtures);
+
+  // Si 2024 está vacía, probamos 2023
+  if(!fixData.response || !fixData.response.length){
+    console.warn("⚠️ Temporada 2024 vacía, intentando 2023...");
+    urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT`;
+    fixData = await fetchFromProxy(urlFixtures);
+  }
 
   if(!fixData.response || !fixData.response.length){
-    console.warn("⚠️ API devolvió 0 partidos. Respuesta:", fixData);
+    console.error("❌ Sin partidos en 2023 ni 2024. Error:", fixData.errors);
     return [];
   }
 
+  // E. FILTRAR LOS ÚLTIMOS 10 MANUALMENTE (Ya que la API no nos deja)
+  let todosLosPartidos = fixData.response;
+  
+  // Ordenar: Más recientes primero
+  todosLosPartidos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
+  
+  // Cortar los primeros 10
+  const ultimos10 = todosLosPartidos.slice(0, 10);
+  
   const partidos = [];
-  console.log(`🎫 Procesando ${fixData.response.length} partidos...`);
+  console.log(`🎫 Procesando stats de los últimos ${ultimos10.length} partidos...`);
 
-  // E. DETALLE ESTADÍSTICAS
-  for(const f of fixData.response){
+  // F. DETALLE ESTADÍSTICAS (Esto sí permite el plan gratis por ID)
+  for(const f of ultimos10){
     const fixtureId = f.fixture.id;
     
     const statData = await fetchFromProxy(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`);
     
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
-    if(!statsTeam) continue;
-
-    const getVal = (type) => (statsTeam.statistics.find(x => x.type === type)?.value) || 0;
+    
+    // Si no hay stats (a veces pasa en ligas menores), ponemos 0
+    const getVal = (type) => statsTeam ? (statsTeam.statistics.find(x => x.type === type)?.value || 0) : 0;
+    
     const isHome = f.teams.home.id === teamId;
 
     partidos.push({
@@ -136,11 +147,11 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pausa técnica
-    await new Promise(r => setTimeout(r, 300));
+    // Pausa técnica para no saturar
+    await new Promise(r => setTimeout(r, 250));
   }
 
-  // F. GUARDAR
+  // G. GUARDAR
   if(partidos.length){
     await cacheRef.set({
       team: teamName,
