@@ -45,7 +45,7 @@ async function registerRequest(){
 // ===============================
 // 🛠 WORKER PROXY
 // ===============================
-const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev/";
+const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
 // ===============================
 // 🧠 CACHE DE EQUIPOS (FIREBASE)
