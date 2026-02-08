@@ -433,16 +433,18 @@ async function analizarFormaEquipos(){
     ${renderEquipo(equipoB, dataB)}
   `;
 }
-  function renderEquipo(nombre, partidos){
-  if(!partidos.length){
+function renderEquipo(nombre, partidos){
+  if(!partidos || !partidos.length){
     return `<p>❌ Sin datos para ${nombre}</p>`;
   }
 
   const n = partidos.length;
 
+  // Función para calcular promedio
   const avg = stat =>
     (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
 
+  // Función para calcular probabilidad de "OVER" (más de X)
   const prob = (stat, linea) => {
     let over=0;
     partidos.forEach(p=>{
@@ -457,26 +459,68 @@ async function analizarFormaEquipos(){
     return `<span class="prob ${c}">${pct}%</span>`;
   };
 
-  return `
-  <div class="card mini">
-    <h3>⚽ ${nombre}</h3>
+  // 🔥 CREAMOS LA TABLA DETALLADA
+  // Mapeamos cada partido a una fila de tabla HTML
+  const filasDetalle = partidos.map(p => {
+    const fecha = new Date(p.fecha).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+    const condicion = p.local ? '(L)' : '(V)'; // Local o Visitante
+    
+    // Colorcitos para resultado rápido (opcional, solo visual)
+    const colorGol = p.stats.gol > 0 ? '#dcfce7' : ''; // Verde clarito si metió gol
 
-    <table class="table">
+    return `
+      <tr>
+        <td class="small">${fecha}</td>
+        <td class="small" style="text-align:left">${condicion} vs ${p.rival}</td>
+        <td>${p.stats.tt}</td>
+        <td>${p.stats.tap}</td>
+        <td>${p.stats.cor}</td>
+        <td>${p.stats.tar}</td>
+        <td style="background:${colorGol}">${p.stats.gol}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+  <div class="card">
+    <h3>⚽ ${nombre} (Últimos ${n})</h3>
+
+    <table class="table" style="margin-bottom:15px; border-bottom:2px solid #333">
       <thead>
-        <tr>
+        <tr style="background:#1e293b">
           <th>Stat</th>
-          <th>Prom</th>
-          <th>Prob</th>
+          <th>Promedio</th>
+          <th>Prob Over</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>TT</td><td>${avg("tt")}</td><td>${prob("tt",10)}</td></tr>
-        <tr><td>AP</td><td>${avg("tap")}</td><td>${prob("tap",4)}</td></tr>
-        <tr><td>COR</td><td>${avg("cor")}</td><td>${prob("cor",4.5)}</td></tr>
-        <tr><td>TAR</td><td>${avg("tar")}</td><td>${prob("tar",3.5)}</td></tr>
-        <tr><td>GOL</td><td>${avg("gol")}</td><td>${prob("gol",1.5)}</td></tr>
+        <tr><td>Tiros Totales</td><td>${avg("tt")}</td><td>${prob("tt", 9.5)} (+9.5)</td></tr>
+        <tr><td>A Puerta</td><td>${avg("tap")}</td><td>${prob("tap", 3.5)} (+3.5)</td></tr>
+        <tr><td>Corners</td><td>${avg("cor")}</td><td>${prob("cor", 4.5)} (+4.5)</td></tr>
+        <tr><td>Tarjetas</td><td>${avg("tar")}</td><td>${prob("tar", 1.5)} (+1.5)</td></tr>
+        <tr><td>Goles</td><td>${avg("gol")}</td><td>${prob("gol", 0.5)} (+0.5)</td></tr>
       </tbody>
     </table>
+
+    <details>
+      <summary style="cursor:pointer; color:#22c55e; font-weight:bold; margin-bottom:10px">Ver Detalle Partido a Partido ⬇️</summary>
+      <table class="table">
+        <thead>
+          <tr style="background:#1e293b">
+            <th>Fecha</th>
+            <th>Rival</th>
+            <th>TT</th>
+            <th>AP</th>
+            <th>COR</th>
+            <th>TAR</th>
+            <th>GOL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filasDetalle}
+        </tbody>
+      </table>
+    </details>
   </div>
   `;
 }
