@@ -37,15 +37,17 @@ async function registerRequest(){
 }
 
 /*************************************************
- * 🌐 PROXY HELPER (BASE 64)
+ * 🌐 PROXY HELPER
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
-// Usamos Base64 para pasar URL complejas sin que Cloudflare las rompa
 async function fetchFromProxy(targetApiUrl) {
+  // Convertimos a Base64 para proteger la URL
   const base64Url = btoa(targetApiUrl);
   const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
-  console.log(`📡 Solicitando: ${targetApiUrl}`); // Log limpio
+  
+  // console.log(`📡 Solicitando: ${targetApiUrl}`); // (Opcional: puedes borrar este log)
+  
   const res = await fetch(finalProxyUrl);
   return await res.json();
 }
@@ -55,7 +57,9 @@ async function fetchFromProxy(targetApiUrl) {
  *************************************************/
 async function getTeamIdByName(teamName){
   try {
-    const data = await fetchFromProxy(`https://v3.football.api-sports.io/teams?search=${teamName}`);
+    // 🔴 CORRECCIÓN AQUÍ: "encodeURIComponent" arregla el espacio de "Real Madrid"
+    const safeName = encodeURIComponent(teamName);
+    const data = await fetchFromProxy(`https://v3.football.api-sports.io/teams?search=${safeName}`);
     
     if(!data.response || !data.response.length){
       console.warn("❌ Equipo no encontrado:", teamName);
@@ -69,7 +73,7 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (Lógica Plan Gratis)
+ * 🧠 2. FUNCIÓN PRINCIPAL
  *************************************************/
 async function getTeamData(teamName){
   console.log(`🚀 Iniciando para: ${teamName}`);
@@ -92,12 +96,11 @@ async function getTeamData(teamName){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (SIN usar 'last', pidiendo temporada completa)
-  // Probamos primero temporada 2024
+  // D. OBTENER PARTIDOS (Temporada Completa)
   let urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&status=FT`;
   let fixData = await fetchFromProxy(urlFixtures);
 
-  // Si 2024 está vacía, probamos 2023
+  // Fallback a 2023 si 2024 está vacío
   if(!fixData.response || !fixData.response.length){
     console.warn("⚠️ Temporada 2024 vacía, intentando 2023...");
     urlFixtures = `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2023&status=FT`;
@@ -105,23 +108,28 @@ async function getTeamData(teamName){
   }
 
   if(!fixData.response || !fixData.response.length){
-    console.error("❌ Sin partidos en 2023 ni 2024. Error:", fixData.errors);
+    console.error("❌ Sin partidos.");
     return [];
   }
 
-  // E. FILTRAR LOS ÚLTIMOS 10 MANUALMENTE (Ya que la API no nos deja)
+  // E. FILTRAR Y ORDENAR
   let todosLosPartidos = fixData.response;
   
-  // Ordenar: Más recientes primero
-  todosLosPartidos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
+  // 1. Asegurar que sean partidos TERMINADOS (FT, AET, PEN)
+  const terminados = todosLosPartidos.filter(p => 
+    ['FT', 'AET', 'PEN'].includes(p.fixture.status.short)
+  );
+
+  // 2. Ordenar por fecha (Más reciente primero)
+  terminados.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
-  // Cortar los primeros 10
-  const ultimos10 = todosLosPartidos.slice(0, 10);
+  // 3. Tomar los 10 últimos
+  const ultimos10 = terminados.slice(0, 10);
   
   const partidos = [];
   console.log(`🎫 Procesando stats de los últimos ${ultimos10.length} partidos...`);
 
-  // F. DETALLE ESTADÍSTICAS (Esto sí permite el plan gratis por ID)
+  // F. DETALLE ESTADÍSTICAS
   for(const f of ultimos10){
     const fixtureId = f.fixture.id;
     
@@ -129,7 +137,7 @@ async function getTeamData(teamName){
     
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
-    // Si no hay stats (a veces pasa en ligas menores), ponemos 0
+    // Helper seguro para obtener valor
     const getVal = (type) => statsTeam ? (statsTeam.statistics.find(x => x.type === type)?.value || 0) : 0;
     
     const isHome = f.teams.home.id === teamId;
@@ -147,8 +155,8 @@ async function getTeamData(teamName){
       }
     });
 
-    // Pausa técnica para no saturar
-    await new Promise(r => setTimeout(r, 250));
+    // Pausa pequeña para no saturar
+    await new Promise(r => setTimeout(r, 200));
   }
 
   // G. GUARDAR
@@ -161,19 +169,17 @@ async function getTeamData(teamName){
     await registerRequest();
   }
 
-  console.log("✅ Datos obtenidos:", partidos);
+  console.log("✅ Datos procesados correctamente.");
   return partidos;
 }
 
-/*************************************************
- * 📊 UTILIDADES
- *************************************************/
-function promedio(partidos, campo){
-  if(!partidos.length) return 0;
-  return (partidos.reduce((a,p)=>a+(p.stats[campo]||0),0) / partidos.length).toFixed(1);
-}
-
+// Exportar
 window.db = db;
 window.getTeamIdByName = getTeamIdByName;
 window.getTeamData = getTeamData;
-window.promedio = promedio;
+
+// Utilidad simple para HTML
+window.promedio = function(partidos, campo){
+  if(!partidos || !partidos.length) return 0;
+  return (partidos.reduce((a,p)=>a+(p.stats[campo]||0),0) / partidos.length).toFixed(1);
+};
