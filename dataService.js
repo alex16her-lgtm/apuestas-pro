@@ -92,10 +92,8 @@ async function getTeamData(teamName, leagueId){
 // ===============================
 // 📡 FETCH API-FOOTBALL
 // ===============================
-
 async function fetchTeamFromApi(teamName, leagueId){
   try{
-    // 1️⃣ Buscar equipo
     const teamRes = await fetch(
       `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
     );
@@ -104,38 +102,32 @@ async function fetchTeamFromApi(teamName, leagueId){
 
     const teamId = teamData.response[0].team.id;
 
-    // 2️⃣ Últimos 10 partidos
     const fixRes = await fetch(
-      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10`
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
     );
     const fixData = await fixRes.json();
     if(!fixData.response?.length) return [];
 
-    console.log("📊 FIXTURES RAW:", fixData.response);
+    return fixData.response.map(f => {
+      const isHome = f.teams.home.id === teamId;
 
-    return fixData.response
-      .map(f => {
-        const isHome = f.teams.home.id === teamId;
+      const statsTeam = f.statistics?.find(
+        s => s.team.id === teamId
+      );
 
-        const statsTeam = f.statistics?.find(
-          s => s.team.id === teamId
-        );
-        if (!statsTeam) return null;
-
-        return {
-          fecha: f.fixture.date,
-          rival: isHome ? f.teams.away.name : f.teams.home.name,
-          local: isHome,
-          stats:{
-            tt: statsTeam.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
-            tap: statsTeam.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
-            cor: statsTeam.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
-            tar: statsTeam.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0,
-            gol: isHome ? f.goals.home : f.goals.away
-          }
-        };
-      })
-      .filter(Boolean);
+      return {
+        fecha: f.fixture.date,
+        rival: isHome ? f.teams.away.name : f.teams.home.name,
+        local: isHome,
+        stats:{
+          tt: statsTeam?.statistics.find(x=>x.type==="Shots total")?.value ?? 0,
+          tap: statsTeam?.statistics.find(x=>x.type==="Shots on Goal")?.value ?? 0,
+          cor: statsTeam?.statistics.find(x=>x.type==="Corner Kicks")?.value ?? 0,
+          tar: statsTeam?.statistics.find(x=>x.type==="Yellow Cards")?.value ?? 0,
+          gol: isHome ? f.goals.home : f.goals.away
+        }
+      };
+    });
 
   }catch(e){
     console.error("❌ API error", e);
