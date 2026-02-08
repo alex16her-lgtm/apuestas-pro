@@ -157,4 +157,8 @@ function probabilidadOver(partidos, stat, linea){
     pick: pct>=50 ? `OVER ${linea}` : `UNDER ${linea}`
   };
 }
-
+// ===============================
+// 🌍 EXPORTAR FIRESTORE GLOBAL
+// ===============================
+window.db = firebase.firestore();
+window.refAnalisis = window.db.collection("analisis");
