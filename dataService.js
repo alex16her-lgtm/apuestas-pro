@@ -61,10 +61,20 @@ async function getTeamIdByName(teamName){
     );
     const data = await res.json();
     
+    // 🔥 DEBUG: Ver qué responde realmente la API
+    console.log("🔍 Respuesta API para " + teamName, data); 
+
+    if (data.errors && Object.keys(data.errors).length > 0) {
+        console.error("🚨 ERROR DE API:", data.errors);
+        alert("Error de API: " + JSON.stringify(data.errors));
+        return null;
+    }
+
     if(!data.response || !data.response.length){
-      console.warn("❌ Equipo no encontrado:", teamName);
+      console.warn("❌ Equipo no encontrado (array vacío):", teamName);
       return null;
     }
+
     return data.response[0].team.id;
   } catch (e) {
     console.error("Error buscando equipo ID:", e);
