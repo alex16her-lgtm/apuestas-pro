@@ -41,12 +41,8 @@ async function registerRequest(){
     count: firebase.firestore.FieldValue.increment(1)
   });
 }
+const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 
-// ===============================
-// 🌐 API-FOOTBALL CONFIG
-// ===============================
-const API_KEY = "TU_API_KEY_AQUI"; // <-- pon tu key
-const API_URL = "https://v3.football.api-sports.io";
 
 // ===============================
 // 🧠 CACHE DE EQUIPOS (FIREBASE)
@@ -91,47 +87,51 @@ async function getTeamData(teamName, leagueId){
 // 📡 FETCH API-FOOTBALL
 // ===============================
 async function fetchTeamFromApi(teamName, leagueId){
-  try{
+  try {
     // 1️⃣ Buscar equipo
-    const teamRes = await fetch(`${API_URL}/teams?search=${teamName}`,{
-      headers:{ "x-apisports-key": API_KEY }
-    });
+    const teamRes = await fetch(
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`
+    );
     const teamData = await teamRes.json();
-    if(!teamData.response.length) return [];
+    if (!teamData.response?.length) return [];
 
     const teamId = teamData.response[0].team.id;
 
     // 2️⃣ Últimos 10 partidos
     const fixRes = await fetch(
-      `${API_URL}/fixtures?team=${teamId}&league=${leagueId}&last=10`,
-      { headers:{ "x-apisports-key": API_KEY } }
+      `${WORKER_URL}/?url=https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10&status=FT`
     );
-
     const fixData = await fixRes.json();
+    if (!fixData.response?.length) return [];
 
-    return fixData.response.map(f => {
-      const isHome = f.teams.home.id === teamId;
-      const stats = isHome ? f.statistics[0] : f.statistics[1];
+    return fixData.response
+      .map(f => {
+        const isHome = f.teams.home.id === teamId;
 
-      return {
-        fecha: f.fixture.date,
-        rival: isHome ? f.teams.away.name : f.teams.home.name,
-        local: isHome,
-        stats:{
-          tt: stats.statistics.find(x=>x.type==="Shots total")?.value || 0,
-          tap: stats.statistics.find(x=>x.type==="Shots on Goal")?.value || 0,
-          cor: stats.statistics.find(x=>x.type==="Corner Kicks")?.value || 0,
-          tar: stats.statistics.find(x=>x.type==="Yellow Cards")?.value || 0,
-          gol: isHome ? f.goals.home : f.goals.away
-        }
-      };
-    });
+        const statsTeam = f.statistics?.find(s => s.team.id === teamId);
+        if (!statsTeam) return null;
 
-  }catch(e){
+        return {
+          fecha: f.fixture.date,
+          rival: isHome ? f.teams.away.name : f.teams.home.name,
+          local: isHome,
+          stats: {
+            tt: Number(statsTeam.statistics.find(x => x.type === "Shots total")?.value) || 0,
+            tap: Number(statsTeam.statistics.find(x => x.type === "Shots on Goal")?.value) || 0,
+            cor: Number(statsTeam.statistics.find(x => x.type === "Corner Kicks")?.value) || 0,
+            tar: Number(statsTeam.statistics.find(x => x.type === "Yellow Cards")?.value) || 0,
+            gol: isHome ? f.goals.home : f.goals.away
+          }
+        };
+      })
+      .filter(Boolean);
+
+  } catch (e) {
     console.error("❌ API error", e);
     return [];
   }
 }
+
 
 // ===============================
 // 🧮 UTILIDADES
