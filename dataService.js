@@ -40,48 +40,67 @@ async function registerRequest(){
  * 🌐 PROXY HELPER & RETRY SYSTEM
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
-
-// Función de espera
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fetch inteligente con reintento automático si hay Rate Limit
 async function fetchSmart(targetApiUrl) {
   const base64Url = btoa(targetApiUrl);
   const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
   
   let attempts = 0;
-  
-  while(attempts < 3) {
+  while(attempts < 2) { // Bajamos a 2 intentos para no eternizar
       const res = await fetch(finalProxyUrl);
       const data = await res.json();
 
-      // Verificar errores de Rate Limit
+      // Detectar bloqueo de API
       if(data.errors && (JSON.stringify(data.errors).includes("requests") || JSON.stringify(data.errors).includes("limit"))) {
-          console.warn(`⏳ Límite alcanzado. Esperando 60 segundos antes de reintentar... (Intento ${attempts+1}/3)`);
-          // Esperamos 65 segundos por seguridad
-          await wait(65000); 
+          console.warn(`⏳ API saturada. Esperando 30s... (Intento ${attempts+1})`);
+          await wait(30000); 
           attempts++;
-          continue; // Volvemos a intentar
+          continue;
       }
-      
       return data;
   }
-  return { errors: { fatal: "Rate limit exceeded after retries" }, response: [] };
+  return { errors: { fatal: "Límite diario excedido o error de conexión" }, response: [] };
 }
 
 /*************************************************
- * 🧠 1. OBTENER TEAM ID
+ * 🧠 1. OBTENER TEAM ID (¡AHORA CON CACHÉ!)
  *************************************************/
 async function getTeamIdByName(teamName){
+  // 1. Buscamos en Firebase primero (Ahorra 1 petición)
+  const docId = teamName.toLowerCase().replace(/\s+/g, '');
+  const cacheIdRef = db.collection("cache_ids").doc(docId);
+  const cache = await cacheIdRef.get();
+
+  if(cache.exists){
+      console.log(`🆔 ID encontrado en memoria: ${teamName} = ${cache.data().id}`);
+      return cache.data().id;
+  }
+
+  // 2. Si no existe, preguntamos a la API
   try {
     const safeName = encodeURIComponent(teamName);
     const data = await fetchSmart(`https://v3.football.api-sports.io/teams?search=${safeName}`);
     
+    if(data.errors && Object.keys(data.errors).length > 0){
+        console.error("🚨 ERROR API:", data.errors);
+        if(JSON.stringify(data.errors).includes("limit")){
+             alert("⚠️ TU API KEY MURIÓ POR HOY. Crea una nueva cuenta en api-football.");
+        }
+        return null; 
+    }
+
     if(!data.response || !data.response.length){
       console.warn("❌ Equipo no encontrado:", teamName);
       return null;
     }
-    return data.response[0].team.id;
+    
+    const id = data.response[0].team.id;
+
+    // 3. Guardamos el ID para no gastar API la próxima vez
+    await cacheIdRef.set({ id: id, name: teamName });
+    return id;
+
   } catch (e) {
     console.error("Error ID:", e);
     return null;
@@ -89,30 +108,28 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (Barrido Inteligente)
+ * 🧠 2. FUNCIÓN PRINCIPAL (V7 - Ahorrador)
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false){
-  // IMPORTANTE: Definimos el año actual manualmente para asegurar
-  const currentYear = 2025; // Temporada 25-26 se busca como "2025"
+  const currentYear = 2025; 
   const yearsToCheck = [2025, 2024]; 
 
   console.log(`🚀 Iniciando para: ${teamName}`);
 
-  // A. CACHÉ V6 (Nueva versión)
-  const cacheKey = `${teamName.replace(/\s+/g, '_')}_v6`;
+  // A. CACHÉ DE PARTIDOS V7
+  const cacheKey = `${teamName.replace(/\s+/g, '_')}_v7`;
   const cacheRef = db.collection("cache_equipos").doc(cacheKey);
   
   if(!forceUpdate){
     const cache = await cacheRef.get();
     if(cache.exists){
       const last = cache.data().updated?.toDate();
-      if(last && (Date.now() - last.getTime()) / 36e5 < 6 && cache.data().partidos?.length){
-        console.log("📦 Usando memoria (Datos recientes)");
+      // Caché dura 12 horas ahora para ahorrar más
+      if(last && (Date.now() - last.getTime()) / 36e5 < 12 && cache.data().partidos?.length){
+        console.log("📦 Usando memoria guardada (0 Gasto API)");
         return cache.data().partidos;
       }
     }
-  } else {
-    console.warn("🔄 Forzando descarga nueva...");
   }
 
   // B. VALIDAR LÍMITES
@@ -122,19 +139,16 @@ async function getTeamData(teamName, forceUpdate = false){
   const teamId = await getTeamIdByName(teamName);
   if(!teamId) return [];
 
-  // D. OBTENER PARTIDOS (Buscando 2025 -> 2024)
+  // D. OBTENER PARTIDOS
   let fixData = null;
 
   for (let year of yearsToCheck) {
     console.log(`🔎 Probando temporada ${year}...`);
     const data = await fetchSmart(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${year}&status=FT`);
 
-    // Detección específica de Bloqueo de Plan
-    if(data.errors && JSON.stringify(data.errors).includes("Free plans do not have access")){
-        console.error(`🚨 TU PLAN BLOQUEA EL AÑO ${year}.`);
-        if(year === 2025) {
-             alert(`⚠️ TU API KEY ES VIEJA/LIMITADA: No te dejan ver datos del 2025/2026. Crea una cuenta nueva en API-Football para arreglarlo.`);
-        }
+    if(data.errors && JSON.stringify(data.errors).includes("Free plans")){
+        console.error(`🚨 PLAN BLOQUEADO PARA AÑO ${year}`);
+        if(year === 2025) alert("⚠️ TU CUENTA NO TIENE ACCESO A 2025/26. Crea una cuenta nueva.");
     }
 
     if(data.response && data.response.length > 0){
@@ -142,14 +156,16 @@ async function getTeamData(teamName, forceUpdate = false){
         console.log(`✅ Datos encontrados en ${year}`);
         break;
     }
+    // Pequeña pausa entre años
+    await wait(1000);
   }
 
   if(!fixData || !fixData.response || !fixData.response.length) {
-    console.error("❌ No se encontraron partidos accesibles para tu plan.");
+    console.error("❌ Sin partidos accesibles.");
     return [];
   }
 
-  // E. ORDENAR Y CORTAR
+  // E. ORDENAR
   let todos = fixData.response.filter(p => ['FT','AET','PEN'].includes(p.fixture.status.short));
   todos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
@@ -158,7 +174,7 @@ async function getTeamData(teamName, forceUpdate = false){
 
   console.log(`🎫 Procesando ${ultimos10.length} partidos...`);
 
-  // F. DETALLE ESTADÍSTICAS
+  // F. DETALLE
   for(const f of ultimos10){
     const statData = await fetchSmart(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`);
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
@@ -169,7 +185,6 @@ async function getTeamData(teamName, forceUpdate = false){
         return (item && item.value !== null) ? Number(item.value) : 0;
     };
 
-    // CÁLCULO TIROS
     let totalShots = getVal("Shots total") || getVal("Total Shots");
     if (totalShots === 0) totalShots = getVal("Goal Attempts");
     if (totalShots === 0) totalShots = getVal("Shots on Goal") + getVal("Shots off Goal") + getVal("Blocked Shots");
@@ -192,8 +207,7 @@ async function getTeamData(teamName, forceUpdate = false){
       }
     });
 
-    // Pequeña pausa extra para respetar tus 10 req/min
-    await wait(2000); 
+    await wait(1500); // Pausa necesaria
   }
 
   // G. GUARDAR
