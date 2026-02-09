@@ -142,25 +142,50 @@ async function getTeamData(teamName, forceUpdate = false){
  * 👥 3. JUGADORES CLAVE (Nombre Limpio)
  *************************************************/
 async function getTopPlayers(teamName) {
+    const docId = teamName.toLowerCase().trim().replace(/\s+/g, '_');
+    const cacheRef = db.collection("cache_equipos").doc(docId);
+    
+    // 1. Miramos qué partidos tenemos guardados para saber el año
+    const doc = await cacheRef.get();
+    if (!doc.exists) return;
+    
+    const partidos = doc.data().partidos;
+    if (!partidos || partidos.length === 0) return;
+
+    // 2. Extraemos el año del partido más reciente (ej: 2025)
+    const añoReciente = new Date(partidos[0].fecha).getFullYear();
+    
+    // 3. Obtenemos el ID del equipo
     const teamId = await getTeamIdByName(teamName);
     if (!teamId) return;
 
-    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=2024`);
-    if (!data.response) return;
+    console.log(`👥 Buscando jugadores de la temporada ${añoReciente} para que coincidan...`);
+
+    // 4. Consultamos la API con el año dinámico
+    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente}`);
+
+    if (!data.response || data.response.length === 0) {
+        // Si el año reciente no da datos (a veces la API prefiere el año de inicio de temporada), probamos el anterior
+        console.warn("Año reciente sin datos, probando año anterior...");
+        const dataPrev = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente - 1}`);
+        if (dataPrev.response) data.response = dataPrev.response;
+    }
 
     const players = data.response.map(p => ({
         nombre: p.player.name,
         foto: p.player.photo,
-        rating: p.statistics[0].games.rating || "N/A",
-        goles: p.statistics[0].goals.total || 0
-    })).slice(0, 5);
+        rating: p.statistics[0].games.rating ? parseFloat(p.statistics[0].games.rating).toFixed(1) : "N/A",
+        goles: p.statistics[0].goals.total || 0,
+        asistencias: p.statistics[0].goals.assists || 0 // Añadimos asistencias para más info
+    }))
+    .sort((a, b) => (b.rating === "N/A" ? 0 : b.rating) - (a.rating === "N/A" ? 0 : a.rating))
+    .slice(0, 5);
 
-    const docId = teamName.toLowerCase().replace(/\s+/g, '_');
-    await db.collection("cache_equipos").doc(docId).set({
-        jugadores: players
+    // 5. Guardamos en Firebase
+    await cacheRef.set({
+        jugadores: players,
+        updated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-}
 
-// Exportar funciones
-window.getTeamData = getTeamData;
-window.getTopPlayers = getTopPlayers;
+    console.log("✅ Jugadores sincronizados con la temporada de los partidos.");
+}
