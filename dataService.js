@@ -117,8 +117,8 @@ async function getTeamData(teamName, forceUpdate = false){
   console.log(`🚀 Iniciando para: ${teamName}`);
 
   // A. CACHÉ DE PARTIDOS V7
-  const cacheKey = `${teamName.replace(/\s+/g, '_')}_v7`;
-  const cacheRef = db.collection("cache_equipos").doc(cacheKey);
+ const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
+  const cacheRef = db.collection("cache_equipos").doc(docId);
   
   if(!forceUpdate){
     const cache = await cacheRef.get();
