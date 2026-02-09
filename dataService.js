@@ -145,47 +145,63 @@ async function getTopPlayers(teamName) {
     const docId = teamName.toLowerCase().trim().replace(/\s+/g, '_');
     const cacheRef = db.collection("cache_equipos").doc(docId);
     
-    // 1. Miramos qué partidos tenemos guardados para saber el año
     const doc = await cacheRef.get();
     if (!doc.exists) return;
     
     const partidos = doc.data().partidos;
     if (!partidos || partidos.length === 0) return;
 
-    // 2. Extraemos el año del partido más reciente (ej: 2025)
     const añoReciente = new Date(partidos[0].fecha).getFullYear();
-    
-    // 3. Obtenemos el ID del equipo
     const teamId = await getTeamIdByName(teamName);
     if (!teamId) return;
 
-    console.log(`👥 Buscando jugadores de la temporada ${añoReciente} para que coincidan...`);
-
-    // 4. Consultamos la API con el año dinámico
+    // Consultamos la API
     const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente}`);
 
     if (!data.response || data.response.length === 0) {
-        // Si el año reciente no da datos (a veces la API prefiere el año de inicio de temporada), probamos el anterior
-        console.warn("Año reciente sin datos, probando año anterior...");
+        console.warn("Intentando con año anterior por falta de datos...");
         const dataPrev = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente - 1}`);
         if (dataPrev.response) data.response = dataPrev.response;
     }
 
-    const players = data.response.map(p => ({
-        nombre: p.player.name,
-        foto: p.player.photo,
-        rating: p.statistics[0].games.rating ? parseFloat(p.statistics[0].games.rating).toFixed(1) : "N/A",
-        goles: p.statistics[0].goals.total || 0,
-        asistencias: p.statistics[0].goals.assists || 0 // Añadimos asistencias para más info
-    }))
-    .sort((a, b) => (b.rating === "N/A" ? 0 : b.rating) - (a.rating === "N/A" ? 0 : a.rating))
-    .slice(0, 5);
+    // 🔥 FILTRADO Y ORDENADO DE ESTRELLAS
+    const topPlayers = data.response
+        .filter(p => {
+            const stats = p.statistics[0];
+            // Solo jugadores con más de 5 partidos jugados (evita reservas/juveniles)
+            return stats.games.appearences >= 5;
+        })
+        .map(p => {
+            const s = p.statistics[0];
+            return {
+                nombre: p.player.name,
+                foto: p.player.photo,
+                posicion: s.games.position,
+                // Convertimos el rating a número real para que el sort funcione
+                rating: s.games.rating ? parseFloat(s.games.rating) : 0,
+                goles: s.goals.total || 0,
+                asistencias: s.goals.assists || 0
+            };
+        })
+        // Ordenamos: primero por Rating, luego por Goles (para ver a los goleadores arriba)
+        .sort((a, b) => {
+            if (b.rating !== a.rating) {
+                return b.rating - a.rating;
+            }
+            return b.goles - a.goles;
+        })
+        .slice(0, 5); // Los 5 mejores
 
-    // 5. Guardamos en Firebase
+    if (topPlayers.length === 0) {
+        console.error("No se encontraron jugadores que cumplan el filtro de 5 partidos.");
+        return [];
+    }
+
+    // Guardar en Firebase con la marca de tiempo para refrescar la pantalla
     await cacheRef.set({
-        jugadores: players,
+        jugadores: topPlayers,
         updated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
-    console.log("✅ Jugadores sincronizados con la temporada de los partidos.");
+    console.log(`✅ Estrellas de ${teamName} sincronizadas.`);
 }
