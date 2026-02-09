@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Buscador API - Fútbol</title>
+<title>Buscador API - Fútbol Profesional</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -31,233 +31,189 @@ body{
 
 h1 { text-align: center; color: var(--accent); margin-bottom: 20px; }
 
-/* Buscador */
 .search-box {
-  display: flex;
-  gap: 10px;
-  background: var(--card);
-  padding: 15px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex; gap: 10px; background: var(--card);
+  padding: 15px; border-radius: 12px; border: 1px solid var(--border);
+  margin-bottom: 20px;
 }
 
 input {
-  flex: 1;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: #0f172a;
-  color: white;
-  font-size: 16px;
+  flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: #0f172a; color: white;
 }
 
-button {
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-
-button:active { transform: scale(0.98); }
-
+button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
 .btn-search { background: var(--accent); color: #022c22; }
-.btn-update { background: #3b82f6; color: white; padding: 5px 10px; font-size: 12px; margin-left: 10px;}
-.btn-back { background: var(--border); color: var(--text); width: 100%; margin-top: 20px; }
+.btn-update { background: #3b82f6; color: white; padding: 4px 8px; font-size: 11px; }
+.btn-delete { background: #475569; color: #f87171; padding: 4px 8px; font-size: 11px; margin-left: 5px;}
+.btn-players { background: transparent; border: 1px dashed var(--accent); color: var(--accent); width: 100%; margin-top: 15px; padding: 10px; }
 
-/* Tarjetas de Equipos */
+/* Estilo Lista Desplegable (Acordeón) */
 .team-card {
   background: var(--card);
-  margin-top: 20px;
+  margin-top: 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
   overflow: hidden;
-  animation: fadeIn 0.5s ease;
 }
 
-.card-header {
+summary {
   padding: 15px;
-  background: #0f172a;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  list-style: none;
+  background: #0f172a;
 }
-
-.card-header h3 { margin: 0; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+summary::-webkit-details-marker { display: none; }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1px;
-  background: var(--border); /* Para crear líneas entre celdas */
-  text-align: center;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; background: var(--border); text-align: center;
 }
 
-.stat-item {
-  background: var(--card);
-  padding: 10px;
+.stat-item { background: var(--card); padding: 10px; }
+.stat-label { font-size: 9px; color: #94a3b8; text-transform: uppercase; }
+.stat-value { font-size: 16px; font-weight: bold; color: white; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table th { background: #0f172a; color: #94a3b8; padding: 8px; }
+.table td { padding: 8px; text-align: center; border-bottom: 1px solid #334155; }
+
+/* Jugadores */
+.players-container {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px; margin-top: 15px; padding: 10px; background: #020617; border-radius: 8px;
 }
-.stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
-.stat-value { font-size: 18px; font-weight: bold; color: white; }
+.player-mini-card { text-align: center; font-size: 11px; padding: 5px; }
+.player-mini-card img { width: 40px; border-radius: 50%; border: 1px solid var(--accent); }
 
-/* Tabla Detalle */
-details { padding: 0; }
-summary {
-  padding: 12px;
-  cursor: pointer;
-  background: #1e293b;
-  color: #94a3b8;
-  font-size: 13px;
-  text-align: center;
-  list-style: none;
-}
-summary:hover { color: white; }
-
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.table th { background: #0f172a; color: #94a3b8; padding: 8px; text-align: center; font-weight: normal; }
-.table td { padding: 8px; text-align: center; border-bottom: 1px solid #334155; color: #cbd5e1; }
-.win { color: #4ade80; }
-.lose { color: #f87171; }
-.draw { color: #fbbf24; }
-
-.spinner { text-align: center; padding: 20px; color: var(--accent); font-weight: bold; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.spinner { text-align: center; padding: 10px; color: var(--accent); font-weight: bold; }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>⚽ Buscador Inteligente API</h1>
+  <h1>⚽ Buscador & Historial API</h1>
   
   <div class="search-box">
-    <input type="text" id="teamInput" placeholder="Ej: Real Madrid, Boca Juniors, Arsenal..." onkeypress="handleEnter(event)">
+    <input type="text" id="teamInput" placeholder="Nombre del equipo..." onkeypress="if(event.key==='Enter') buscarEquipo()">
     <button class="btn-search" onclick="buscarEquipo()">🔍 BUSCAR</button>
   </div>
 
+  <div id="loadingStatus"></div>
   <div id="resultsArea"></div>
 
-  <button class="btn-back" onclick="window.location.href='index.html'">⬅ Volver al Menú Principal</button>
+  <button style="background:var(--border); color:white; width:100%; margin-top:20px" onclick="window.location.href='index.html'">⬅ Volver al Menú</button>
 </div>
 
 <script src="dataService.js"></script>
 
 <script>
-// Referencia a colección de historial (opcional, si quieres guardar búsquedas)
-// Por ahora usaremos el LocalStorage o la misma caché de dataService para mostrar lo reciente.
+// 1. ESCUCHAR HISTORIAL (Persistencia al recargar)
+db.collection("cache_equipos").orderBy("updated", "desc").onSnapshot(snap => {
+    const container = document.getElementById("resultsArea");
+    container.innerHTML = "";
+    
+    if(snap.empty) {
+        container.innerHTML = "<p style='text-align:center; color:#64748b'>Historial vacío.</p>";
+        return;
+    }
 
-// 1. BUSCAR EQUIPO
+    snap.forEach(doc => {
+        const data = doc.data();
+        container.innerHTML += renderTeamCard(data.team, data.partidos, doc.id, data.jugadores);
+    });
+});
+
+// 2. BUSCAR EQUIPO
 async function buscarEquipo(forceUpdate = false) {
   const teamName = document.getElementById("teamInput").value.trim();
-  const container = document.getElementById("resultsArea");
-
   if(!teamName) return alert("Escribe un nombre de equipo");
 
-  // Mostrar Spinner
-  if(!forceUpdate) {
-      container.innerHTML = `<div class="spinner">📡 Conectando con API... Buscando "${teamName}"</div>`;
-  } else {
-      // Si es actualización, buscamos la tarjeta existente y ponemos spinner ahí
-      const card = document.getElementById(`card-${teamName.replace(/\s+/g, '_')}`);
-      if(card) card.style.opacity = "0.5";
-  }
-
-  // LLAMADA AL SERVICIO (dataService.js)
-  // Pasamos el segundo parámetro "true" si el usuario pidió forzar actualización
-  const partidos = await getTeamData(teamName, forceUpdate);
-
-  if(!partidos || !partidos.length) {
-    container.innerHTML = `<div class="team-card" style="padding:20px; text-align:center; color:#f87171">
-      ❌ No se encontraron datos para "${teamName}".<br>
-      <small>Verifique el nombre o intente más tarde (Límite API).</small>
-    </div>` + container.innerHTML; // Mantenemos historial previo si quieres
-    return;
-  }
-
-  // RENDERIZAR TARJETA
-  const htmlTarjeta = renderTeamCard(teamName, partidos);
+  document.getElementById("loadingStatus").innerHTML = `<div class="spinner">⏳ Procesando ${teamName}...</div>`;
   
-  // Insertamos al principio (Historial visual)
-  // Si ya existía (actualización), lo reemplazamos. Si no, lo agregamos.
-  const idCard = `card-${teamName.replace(/\s+/g, '_')}`;
-  const existingCard = document.getElementById(idCard);
+  await getTeamData(teamName, forceUpdate);
   
-  if(existingCard) {
-      existingCard.outerHTML = htmlTarjeta;
-  } else {
-      container.innerHTML = htmlTarjeta + container.innerHTML;
-  }
+  document.getElementById("loadingStatus").innerHTML = "";
+  document.getElementById("teamInput").value = "";
 }
 
-// 2. RENDERIZAR TARJETA (Diseño Moderno)
-function renderTeamCard(nombre, partidos) {
-  const n = partidos.length;
-  const idSafe = nombre.replace(/\s+/g, '_');
+// 3. CARGAR JUGADORES (BAJO DEMANDA)
+async function verJugadores(nombre) {
+    document.getElementById("loadingStatus").innerHTML = `<div class="spinner">👥 Buscando cracks de ${nombre}...</div>`;
+    await getTopPlayers(nombre); // Función que debe estar en dataService.js
+    document.getElementById("loadingStatus").innerHTML = "";
+}
 
-  // Promedios
+// 4. ELIMINAR DEL HISTORIAL
+async function eliminarHistorial(id) {
+    if(confirm("¿Eliminar este equipo del historial?")) {
+        await db.collection("cache_equipos").doc(id).delete();
+    }
+}
+
+// 5. RENDERIZAR TARJETA (Acordeón)
+function renderTeamCard(nombre, partidos, docId, jugadores = []) {
+  const n = partidos.length;
   const avg = stat => (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
 
-  // Filas de la tabla
-  const rows = partidos.map(p => {
-    const fecha = new Date(p.fecha).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
-    const cond = p.local ? '<b style="color:#fbbf24">L</b>' : '<span style="color:#94a3b8">V</span>';
-    const goles = p.stats.gol > 0 ? `<b class="win">${p.stats.gol}</b>` : `<span style="color:#64748b">0</span>`;
-    
-    return `<tr>
-      <td>${fecha}</td>
-      <td style="text-align:left">${cond} vs ${p.rival}</td>
-      <td style="color:#e2e8f0">${p.stats.tt}</td>
-      <td style="color:#94a3b8">${p.stats.tap}</td>
-      <td style="color:#94a3b8">${p.stats.cor}</td>
-      <td style="color:#f87171">${p.stats.tar}</td>
-      <td>${goles}</td>
-    </tr>`;
-  }).join("");
+  const rows = partidos.map(p => `
+    <tr>
+      <td>${new Date(p.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})}</td>
+      <td style="text-align:left">${p.local?'L':'V'} vs ${p.rival}</td>
+      <td>${p.stats.tt}</td><td>${p.stats.tap}</td><td>${p.stats.cor}</td><td>${p.stats.tar}</td>
+      <td style="color:var(--accent); font-weight:bold">${p.stats.gol}</td>
+    </tr>`).join("");
+
+  // Sección de Jugadores
+  let jugadoresHTML = "";
+  if (jugadores && jugadores.length > 0) {
+      jugadoresHTML = `
+      <div class="players-container">
+        ${jugadores.map(j => `
+          <div class="player-mini-card">
+            <img src="${j.foto}">
+            <div style="font-weight:bold; margin-top:3px">${j.nombre}</div>
+            <div style="color:var(--accent)">⭐ ${j.rating} | G: ${j.goles}</div>
+          </div>`).join("")}
+      </div>`;
+  } else {
+      jugadoresHTML = `<button class="btn-players" onclick="verJugadores('${nombre}')">👥 Ver Jugadores Clave (Gasta API)</button>`;
+  }
 
   return `
-  <div class="team-card" id="card-${idSafe}">
-    <div class="card-header">
-      <h3>⚽ ${nombre} <span style="font-size:12px; color:#64748b; margin-left:10px">(${n} partidos)</span></h3>
-      <button class="btn-update" onclick="actualizarEquipo('${nombre}')">🔄 Actualizar Datos</button>
-    </div>
+  <div class="team-card">
+    <details>
+      <summary>
+        <div style="display:flex; align-items:center; gap:10px">
+            <span style="font-size:18px">⚽</span> 
+            <b>${nombre}</b> 
+            <span style="font-size:11px; color:var(--accent)">Avg Goles: ${avg("gol")}</span>
+        </div>
+        <div onclick="event.preventDefault()">
+            <button class="btn-update" onclick="getTeamData('${nombre}', true)">🔄</button>
+            <button class="btn-delete" onclick="eliminarHistorial('${docId}')">🗑️</button>
+        </div>
+      </summary>
 
-    <div class="stats-grid">
-      <div class="stat-item"><div class="stat-label">Tiros</div><div class="stat-value">${avg("tt")}</div></div>
-      <div class="stat-item"><div class="stat-label">A Puerta</div><div class="stat-value">${avg("tap")}</div></div>
-      <div class="stat-item"><div class="stat-label">Corners</div><div class="stat-value">${avg("cor")}</div></div>
-      <div class="stat-item"><div class="stat-label">Tarjetas</div><div class="stat-value" style="color:#f87171">${avg("tar")}</div></div>
-      <div class="stat-item"><div class="stat-label">Goles</div><div class="stat-value" style="color:#4ade80">${avg("gol")}</div></div>
-    </div>
+      <div class="stats-grid">
+        <div class="stat-item"><div class="stat-label">Tiros</div><div class="stat-value">${avg("tt")}</div></div>
+        <div class="stat-item"><div class="stat-label">A Puerta</div><div class="stat-value">${avg("tap")}</div></div>
+        <div class="stat-item"><div class="stat-label">Corners</div><div class="stat-value">${avg("cor")}</div></div>
+        <div class="stat-item"><div class="stat-label">Tarjetas</div><div class="stat-value" style="color:var(--danger)">${avg("tar")}</div></div>
+        <div class="stat-item"><div class="stat-label">Goles</div><div class="stat-value" style="color:var(--accent)">${avg("gol")}</div></div>
+      </div>
 
-    <details open>
-      <summary>Ver detalle de partidos ⬇️</summary>
       <table class="table">
-        <thead>
-          <tr><th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>TAR</th><th>GOL</th></tr>
-        </thead>
+        <thead><tr><th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>T</th><th>G</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${jugadoresHTML}
     </details>
-  </div>
-  `;
-}
-
-// 3. ACTUALIZAR (Botón Recargar)
-function actualizarEquipo(nombre) {
-  // Ponemos el nombre en el input (invisiblemente o explícito) para reusar lógica
-  document.getElementById("teamInput").value = nombre;
-  // Llamamos a buscar con TRUE para forzar la API
-  buscarEquipo(true);
-}
-
-// Enter para buscar
-function handleEnter(e) {
-  if(e.key === 'Enter') buscarEquipo();
+  </div>`;
 }
 </script>
-
 </body>
 </html>
