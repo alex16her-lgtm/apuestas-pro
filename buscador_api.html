@@ -173,34 +173,53 @@ async function eliminarHistorial(id) {
 // 5. RENDERIZAR TARJETA (Acordeón)
 function renderTeamCard(nombre, partidos, docId, jugadores = []) {
   const n = partidos.length;
-  const avg = stat => (partidos.reduce((a,p)=>a+(p.stats[stat]||0),0)/n).toFixed(1);
+  // Usamos el docId de Firebase para identificar la tarjeta de forma única
+  const idSafe = docId; 
+  const avg = stat => (partidos.reduce((a,p) => a + (p.stats[stat]||0), 0) / n).toFixed(1);
 
-  const rows = partidos.map(p => `
+  // 1. Generar filas de la tabla
+  const rows = partidos.map(p => {
+    const fecha = new Date(p.fecha).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+    const esLocal = p.local ? '<b style="color:#fbbf24">L</b>' : '<span style="color:#94a3b8">V</span>';
+    
+    return `
     <tr>
-      <td>${new Date(p.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})}</td>
-      <td style="text-align:left">${p.local?'L':'V'} vs ${p.rival}</td>
-      <td>${p.stats.tt}</td><td>${p.stats.tap}</td><td>${p.stats.cor}</td><td>${p.stats.tar}</td>
+      <td>${fecha}</td>
+      <td style="text-align:left">${esLocal} vs ${p.rival}</td>
+      <td>${p.stats.tt}</td>
+      <td>${p.stats.tap}</td>
+      <td>${p.stats.cor}</td>
+      <td>${p.stats.tar}</td>
       <td style="color:var(--accent); font-weight:bold">${p.stats.gol}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
-  // Sección de Jugadores
+  // 2. Lógica de Jugadores (Solo se muestra si ya existen en Firebase)
   let jugadoresHTML = "";
   if (jugadores && jugadores.length > 0) {
       jugadoresHTML = `
-      <div class="players-container">
-        ${jugadores.map(j => `
-          <div class="player-mini-card">
-            <img src="${j.foto}">
-            <div style="font-weight:bold; margin-top:3px">${j.nombre}</div>
-            <div style="color:var(--accent)">⭐ ${j.rating} | G: ${j.goles}</div>
-          </div>`).join("")}
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px">
+        <h4 style="color:#fbbf24; font-size:14px; margin-bottom:10px">⭐ Jugadores a Seguir</h4>
+        <div class="players-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px">
+          ${jugadores.map(j => `
+            <div class="player-mini-card" style="background:#0f172a; padding:10px; border-radius:10px; text-align:center">
+              <img src="${j.foto}" style="width:45px; border-radius:50%; border:1px solid var(--accent)">
+              <div style="font-weight:bold; font-size:11px; margin-top:5px; white-space:nowrap; overflow:hidden">${j.nombre}</div>
+              <div style="color:var(--accent); font-size:10px">Rating: ${j.rating} | G: ${j.goles}</div>
+            </div>`).join("")}
+        </div>
       </div>`;
   } else {
-      jugadoresHTML = `<button class="btn-players" onclick="verJugadores('${nombre}')">👥 Ver Jugadores Clave (Gasta API)</button>`;
+      // Si no hay jugadores, mostramos el botón que gasta API
+      jugadoresHTML = `
+      <button id="btn-${idSafe}" class="btn-players" onclick="verJugadores('${nombre}')" style="width:100%; margin-top:15px; cursor:pointer">
+        👥 Ver Jugadores Clave (Gasta API)
+      </button>`;
   }
 
+  // 3. Estructura del Acordeón
   return `
-  <div class="team-card">
+  <div class="team-card" id="card-${idSafe}">
     <details>
       <summary>
         <div style="display:flex; align-items:center; gap:10px">
@@ -214,19 +233,24 @@ function renderTeamCard(nombre, partidos, docId, jugadores = []) {
         </div>
       </summary>
 
-      <div class="stats-grid">
-        <div class="stat-item"><div class="stat-label">Tiros</div><div class="stat-value">${avg("tt")}</div></div>
-        <div class="stat-item"><div class="stat-label">A Puerta</div><div class="stat-value">${avg("tap")}</div></div>
-        <div class="stat-item"><div class="stat-label">Corners</div><div class="stat-value">${avg("cor")}</div></div>
-        <div class="stat-item"><div class="stat-label">Tarjetas</div><div class="stat-value" style="color:var(--danger)">${avg("tar")}</div></div>
-        <div class="stat-item"><div class="stat-label">Goles</div><div class="stat-value" style="color:var(--accent)">${avg("gol")}</div></div>
-      </div>
+      <div class="stats-content" style="padding:15px; background:#020617">
+        <div class="stats-grid">
+          <div class="stat-item"><div class="stat-label">Tiros</div><div class="stat-value">${avg("tt")}</div></div>
+          <div class="stat-item"><div class="stat-label">A Puerta</div><div class="stat-value">${avg("tap")}</div></div>
+          <div class="stat-item"><div class="stat-label">Corners</div><div class="stat-value">${avg("cor")}</div></div>
+          <div class="stat-item"><div class="stat-label">Tarjetas</div><div class="stat-value" style="color:var(--danger)">${avg("tar")}</div></div>
+          <div class="stat-item"><div class="stat-label">Goles</div><div class="stat-value" style="color:var(--accent)">${avg("gol")}</div></div>
+        </div>
 
-      <table class="table">
-        <thead><tr><th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>T</th><th>G</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${jugadoresHTML}
+        <table class="table">
+          <thead>
+            <tr><th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>T</th><th>G</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+
+        ${jugadoresHTML}
+      </div>
     </details>
   </div>`;
 }
