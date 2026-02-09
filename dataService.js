@@ -231,3 +231,47 @@ window.promedio = function(partidos, campo){
   if(!partidos || !partidos.length) return 0;
   return (partidos.reduce((a,p)=>a+(p.stats[campo]||0),0) / partidos.length).toFixed(1);
 };
+/*************************************************
+ * 👥 OBTENER JUGADORES CLAVE (Solo bajo demanda)
+ *************************************************/
+async function getTopPlayers(teamName) {
+    console.log(`👥 Buscando jugadores clave para: ${teamName}`);
+    
+    // 1. Obtener ID del equipo desde nuestra memoria
+    const teamId = await getTeamIdByName(teamName);
+    if (!teamId) return [];
+
+    // 2. Consultar estadísticas de jugadores de la temporada actual
+    // Usamos el año 2024/2025 según lo que permita tu plan
+    const year = 2024; 
+    const url = `https://v3.football.api-sports.io/players?team=${teamId}&season=${year}`;
+    
+    const data = await fetchSmart(url);
+
+    if (!data.response || !data.response.length) {
+        console.warn("No se encontraron jugadores.");
+        return [];
+    }
+
+    // 3. Filtrar y ordenar (Top 5 por calificación o goles)
+    const topPlayers = data.response
+        .map(p => ({
+            nombre: p.player.name,
+            foto: p.player.photo,
+            posicion: p.statistics[0].games.position,
+            rating: p.statistics[0].games.rating || "N/A",
+            goles: p.statistics[0].goals.total || 0,
+            asistencias: p.statistics[0].goals.assists || 0,
+            tiros_pj: p.statistics[0].shots.total ? (p.statistics[0].shots.total / p.statistics[0].games.appearences).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.rating - a.rating) // Ordenar por calificación
+        .slice(0, 5); // Solo los 5 mejores
+
+    // 4. Guardar estos jugadores en el documento del equipo en Firebase
+    const cacheKey = `${teamName.replace(/\s+/g, '_')}_v5`;
+    await db.collection("cache_equipos").doc(cacheKey).update({
+        jugadores: topPlayers
+    });
+
+    return topPlayers;
+}
