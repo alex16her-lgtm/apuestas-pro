@@ -252,26 +252,30 @@ async function getTopPlayers(teamName) {
         console.warn("No se encontraron jugadores.");
         return [];
     }
+async function getTopPlayers(teamName) {
+    const teamId = await getTeamIdByName(teamName);
+    if (!teamId) return;
+    
+    // Consultamos la API
+    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=2024`);
+    if (!data.response) return;
 
-    // 3. Filtrar y ordenar (Top 5 por calificación o goles)
-    const topPlayers = data.response
-        .map(p => ({
-            nombre: p.player.name,
-            foto: p.player.photo,
-            posicion: p.statistics[0].games.position,
-            rating: p.statistics[0].games.rating || "N/A",
-            goles: p.statistics[0].goals.total || 0,
-            asistencias: p.statistics[0].goals.assists || 0,
-            tiros_pj: p.statistics[0].shots.total ? (p.statistics[0].shots.total / p.statistics[0].games.appearences).toFixed(1) : 0
-        }))
-        .sort((a, b) => b.rating - a.rating) // Ordenar por calificación
-        .slice(0, 5); // Solo los 5 mejores
+    const players = data.response.map(p => ({
+        nombre: p.player.name,
+        foto: p.player.photo,
+        rating: p.statistics[0].games.rating || "N/A",
+        goles: p.statistics[0].goals.total || 0
+    })).slice(0, 5);
 
-    // 4. Guardar estos jugadores en el documento del equipo en Firebase
-    const cacheKey = `${teamName.replace(/\s+/g, '_')}_v5`;
-    await db.collection("cache_equipos").doc(cacheKey).update({
-        jugadores: topPlayers
-    });
-
-    return topPlayers;
+    // --- EL ARREGLO ESTÁ AQUÍ ---
+    // Generamos el ID exacto: minúsculas y sin espacios
+    const docId = teamName.toLowerCase().replace(/\s+/g, '_');
+    
+    // Usamos 'set' con 'merge: true' en lugar de 'update'
+    // 'set + merge' crea el documento si no existe o lo actualiza si ya existe
+    await db.collection("cache_equipos").doc(docId).set({ 
+        jugadores: players 
+    }, { merge: true });
+    
+    console.log("✅ Jugadores guardados en el historial");
 }
