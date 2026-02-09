@@ -2,162 +2,216 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Historial Maestro - API Fútbol</title>
+<title>Historial Inteligente - API Fútbol</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-    :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #22c55e; --border: #334155; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; padding: 20px; }
-    .container { max-width: 700px; margin: auto; }
-    
-    /* Buscador */
-    .search-box { display: flex; gap: 10px; background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
-    input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: #020617; color: white; }
-    button.btn-search { background: var(--accent); color: #064e3b; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+:root{
+  --bg:#0f172a;
+  --card:#1e293b;
+  --text:#f8fafc;
+  --accent:#22c55e;
+  --danger:#ef4444;
+  --border:#334155;
+}
 
-    /* Estilo Lista Desplegable */
-    .team-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; }
-    summary { padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-    summary:hover { background: #334155; }
-    
-    .actions { display: flex; gap: 8px; }
-    .btn-act { padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-size: 12px; font-weight: bold; }
-    .upd { background: #3b82f6; color: white; }
-    .del { background: #475569; color: #f87171; }
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Segoe UI', sans-serif;
+  padding: 15px;
+}
 
-    .content { padding: 15px; background: #020617; border-top: 1px solid var(--border); }
-    .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px; text-align: center; }
-    .box { background: #1e293b; padding: 8px; border-radius: 8px; }
-    .box label { font-size: 9px; color: #94a3b8; display: block; }
-    .box b { font-size: 16px; }
+.container{ max-width: 700px; margin: auto; }
 
-    .table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .table th { color: #64748b; padding-bottom: 8px; }
-    .table td { padding: 8px 4px; border-bottom: 1px solid #1e293b; text-align: center; }
+/* Buscador */
+.search-box {
+  display: flex; gap: 8px;
+  background: var(--card);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+input {
+  flex: 1; padding: 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: #0f172a; color: white;
+}
+.btn-search { background: var(--accent); border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding: 0 15px; }
 
-    .player-chip { background: #1e293b; padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-top: 5px; }
-    .player-chip img { width: 30px; border-radius: 50%; }
+/* Acordeón de Historial */
+.team-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
 
-    .loading { text-align: center; color: var(--accent); margin-bottom: 15px; font-weight: bold; }
+summary {
+  padding: 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+summary:hover { background: #334155; }
+summary::-webkit-details-marker { display: none; }
+
+.team-info { display: flex; align-items: center; gap: 10px; }
+.team-main-stats { font-size: 12px; color: var(--accent); font-weight: normal; }
+
+/* Botones de acción */
+.actions { display: flex; gap: 10px; }
+.btn-action {
+  border: none; border-radius: 4px; padding: 4px 8px;
+  font-size: 11px; cursor: pointer; font-weight: bold;
+  display: flex; align-items: center; gap: 4px;
+}
+.update { background: #3b82f6; color: white; }
+.delete { background: #475569; color: #f87171; }
+.delete:hover { background: var(--danger); color: white; }
+
+/* Contenido de la estadística */
+.stats-content {
+  padding: 15px;
+  background: #0f172a;
+  border-top: 1px solid var(--border);
+}
+
+.grid-summary {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 5px; margin-bottom: 15px; text-align: center;
+}
+.grid-box { background: #1e293b; padding: 8px; border-radius: 6px; }
+.label { display: block; font-size: 9px; color: #94a3b8; }
+.val { font-size: 16px; font-weight: bold; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.table th { color: #64748b; padding: 5px; border-bottom: 1px solid var(--border); }
+.table td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #1e293b; }
+
+.spinner { text-align: center; padding: 10px; color: var(--accent); font-size: 14px; }
 </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📊 Buscador & Historial API</h2>
+  <h2 style="text-align: center; color: var(--accent);">📊 Buscador & Historial</h2>
+  
+  <div class="search-box">
+    <input type="text" id="teamInput" placeholder="Nombre del equipo..." onkeypress="if(event.key==='Enter') buscarEquipo()">
+    <button class="btn-search" onclick="buscarEquipo()">BUSCAR</button>
+  </div>
 
-    <div class="search-box">
-        <input type="text" id="teamInput" placeholder="Nombre del equipo..." onkeypress="if(event.key==='Enter') buscarEquipo()">
-        <button class="btn-search" onclick="buscarEquipo()">BUSCAR</button>
-    </div>
+  <div id="loadingArea"></div>
+  <div id="resultsArea"></div>
 
-    <div id="status" class="loading"></div>
-    <div id="results"></div>
-    
-    <button onclick="window.location.href='analisis.html'" style="width:100%; padding:12px; margin-top:20px; background:var(--border); color:white; border:none; border-radius:8px; cursor:pointer;">⬅ Volver a H2H Manual</button>
+  <div style="display: flex; gap: 10px; margin-top: 20px;">
+    <button onclick="window.location.href='analisis.html'" style="flex:1; padding:10px; cursor:pointer; background:#334155; color:white; border:none; border-radius:8px;">H2H Manual</button>
+    <button onclick="window.location.href='index.html'" style="flex:1; padding:10px; cursor:pointer; background:#334155; color:white; border:none; border-radius:8px;">Menú Principal</button>
+  </div>
 </div>
 
 <script src="dataService.js"></script>
 
 <script>
-// 1. CARGAR HISTORIAL AUTOMÁTICAMENTE
-// Escuchamos la colección "cache_equipos" (sin importar la versión del nombre)
+// 1. ESCUCHAR HISTORIAL EN TIEMPO REAL
 db.collection("cache_equipos").orderBy("updated", "desc").onSnapshot(snap => {
-    const res = document.getElementById("results");
-    res.innerHTML = "";
-    
-    if(snap.empty) {
-        res.innerHTML = "<p style='text-align:center; color:#64748b'>No hay equipos buscados aún.</p>";
-        return;
-    }
+  const container = document.getElementById("resultsArea");
+  container.innerHTML = "";
 
-    snap.forEach(doc => {
-        const data = doc.data();
-        res.innerHTML += renderAccordion(data.team, data.partidos, doc.id, data.jugadores);
-    });
+  if (snap.empty) {
+    container.innerHTML = `<p style="text-align:center; color:#64748b">Historial vacío.</p>`;
+    return;
+  }
+
+  snap.forEach(doc => {
+    const data = doc.data();
+    container.innerHTML += renderTeamAccordion(data.team, data.partidos, doc.id);
+  });
 });
 
 // 2. BUSCAR
-async function buscarEquipo() {
-    const name = document.getElementById("teamInput").value.trim();
-    if(!name) return;
+async function buscarEquipo(force = false) {
+  const name = document.getElementById("teamInput").value.trim();
+  if(!name) return;
+
+  const load = document.getElementById("loadingArea");
+  load.innerHTML = `<div class="spinner">⏳ Procesando ${name}...</div>`;
+
+  await getTeamData(name, force);
+  
+  load.innerHTML = "";
+  document.getElementById("teamInput").value = "";
+}
+
+// 3. ACTUALIZAR O ELIMINAR
+async function actualizar(nombre) {
+  const load = document.getElementById("loadingArea");
+  load.innerHTML = `<div class="spinner">🔄 Actualizando ${nombre}...</div>`;
+  await getTeamData(nombre, true);
+  load.innerHTML = "";
+}
+
+async function eliminar(docId) {
+  if(confirm("¿Eliminar este equipo del historial?")) {
+    await db.collection("cache_equipos").doc(docId).delete();
+  }
+}
+
+// 4. DISEÑO DE ACORDEÓN
+function renderTeamAccordion(nombre, partidos, docId) {
+  const n = partidos.length;
+  const avg = s => (partidos.reduce((a,p)=>a+(p.stats[s]||0),0)/n).toFixed(1);
+
+  const rows = partidos.map(p => {
+    const fecha = new Date(p.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+    const colorGol = p.stats.gol > 0 ? 'color:#4ade80;font-weight:bold' : 'color:#64748b';
+    return `<tr>
+      <td>${fecha}</td>
+      <td style="text-align:left">${p.local?'L':'V'} vs ${p.rival}</td>
+      <td>${p.stats.tt}</td><td>${p.stats.tap}</td><td>${p.stats.cor}</td>
+      <td style="${colorGol}">${p.stats.gol}</td>
+    </tr>`;
+  }).join("");
+
+  return `
+  <details class="team-item">
+    <summary>
+      <div class="team-info">
+        <span>⚽ ${nombre}</span>
+        <span class="team-main-stats">Avg Goles: ${avg("gol")} | Cor: ${avg("cor")}</span>
+      </div>
+      <div class="actions">
+        <button class="btn-action update" onclick="event.stopPropagation(); actualizar('${nombre}')">🔄</button>
+        <button class="btn-action delete" onclick="event.stopPropagation(); eliminar('${docId}')">🗑️</button>
+      </div>
+    </summary>
     
-    document.getElementById("status").innerText = `⏳ Buscando ${name}...`;
-    await getTeamData(name, false);
-    document.getElementById("status").innerText = "";
-    document.getElementById("teamInput").value = "";
-}
+    <div class="stats-content">
+      <div class="grid-summary">
+        <div class="grid-box"><span class="label">TIROS</span><span class="val">${avg("tt")}</span></div>
+        <div class="grid-box"><span class="label">PUERTA</span><span class="val">${avg("tap")}</span></div>
+        <div class="grid-box"><span class="label">CORNERS</span><span class="val">${avg("cor")}</span></div>
+        <div class="grid-box"><span class="label">TARJ</span><span class="val" style="color:#f87171">${avg("tar")}</span></div>
+        <div class="grid-box"><span class="label">GOLES</span><span class="val" style="color:#4ade80">${avg("gol")}</span></div>
+      </div>
 
-// 3. ACTUALIZAR JUGADORES (BAJO DEMANDA)
-async function verJugadores(nombre) {
-    document.getElementById("status").innerText = `👥 Obteniendo cracks de ${nombre}...`;
-    await getTopPlayers(nombre);
-    document.getElementById("status").innerText = "";
-}
-
-// 4. ACTUALIZAR PARTIDOS
-async function forzar(nombre) {
-    document.getElementById("status").innerText = `🔄 Actualizando partidos de ${nombre}...`;
-    await getTeamData(nombre, true);
-    document.getElementById("status").innerText = "";
-}
-
-// 5. BORRAR
-async function borrar(id) {
-    if(confirm("¿Eliminar del historial?")) await db.collection("cache_equipos").doc(id).delete();
-}
-
-// RENDERIZADO
-function renderAccordion(nombre, partidos, docId, jugadores = []) {
-    const n = partidos.length;
-    const avg = s => (partidos.reduce((a,p)=>a+(p.stats[s]||0),0)/n).toFixed(1);
-
-    const rows = partidos.map(p => `
-        <tr>
-            <td>${new Date(p.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})}</td>
-            <td style="text-align:left">${p.local?'L':'V'} vs ${p.rival}</td>
-            <td>${p.stats.tt}</td><td>${p.stats.cor}</td><td>${p.stats.tar}</td>
-            <td style="color:#4ade80; font-weight:bold">${p.stats.gol}</td>
-        </tr>`).join("");
-
-    let playersHTML = "";
-    if(jugadores && jugadores.length > 0) {
-        playersHTML = `<div style="margin-top:15px; color:#fbbf24; font-size:13px">⭐ Jugadores clave:</div>` + 
-            jugadores.map(j => `
-            <div class="player-chip">
-                <img src="${j.foto}">
-                <span><b>${j.nombre}</b> (Rating: ${j.rating})</span>
-            </div>`).join("");
-    } else {
-        playersHTML = `<button onclick="verJugadores('${nombre}')" style="width:100%; margin-top:10px; background:#1e293b; color:#94a3b8; border:1px dashed #334155; padding:8px; border-radius:8px; cursor:pointer">👥 Cargar Jugadores Clave</button>`;
-    }
-
-    return `
-    <details class="team-item">
-        <summary>
-            <span>⚽ ${nombre}</span>
-            <div class="actions">
-                <button class="btn-act upd" onclick="event.stopPropagation(); forzar('${nombre}')">🔄</button>
-                <button class="btn-act del" onclick="event.stopPropagation(); borrar('${docId}')">🗑️</button>
-            </div>
-        </summary>
-        <div class="content">
-            <div class="stats-grid">
-                <div class="box"><label>TIROS</label><b>${avg("tt")}</b></div>
-                <div class="box"><label>CORNERS</label><b>${avg("cor")}</b></div>
-                <div class="box"><label>TARJ</label><b style="color:#f87171">${avg("tar")}</b></div>
-                <div class="box"><label>GOLES</label><b style="color:#4ade80">${avg("gol")}</b></div>
-            </div>
-            <table class="table">
-                <thead><tr><th>Fecha</th><th>Rival</th><th>TT</th><th>C</th><th>T</th><th>G</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-            ${playersHTML}
-        </div>
-    </details>`;
+      <table class="table">
+        <thead><tr><th>Fecha</th><th>Rival</th><th>TT</th><th>AP</th><th>COR</th><th>GOL</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </details>`;
 }
 </script>
 </body>
