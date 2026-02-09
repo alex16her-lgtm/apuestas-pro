@@ -141,10 +141,26 @@ async function buscarEquipo(forceUpdate = false) {
 }
 
 // 3. CARGAR JUGADORES (BAJO DEMANDA)
+// 3. ACTUALIZAR JUGADORES (BAJO DEMANDA)
 async function verJugadores(nombre) {
-    document.getElementById("loadingStatus").innerHTML = `<div class="spinner">👥 Buscando cracks de ${nombre}...</div>`;
-    await getTopPlayers(nombre); // Función que debe estar en dataService.js
-    document.getElementById("loadingStatus").innerHTML = "";
+    console.log("Iniciando búsqueda de jugadores para:", nombre);
+    const btn = event.target; // Capturamos el botón que pulsaste
+    const textoOriginal = btn.innerText;
+    
+    btn.innerText = "⏳ Buscando cracks...";
+    btn.disabled = true;
+
+    try {
+        // Llamada a la función en dataService.js
+        await getTopPlayers(nombre);
+        console.log("Jugadores guardados con éxito");
+        // No hace falta hacer nada más, el onSnapshot redibujará la tarjeta sola
+    } catch (e) {
+        console.error("Error al obtener jugadores:", e);
+        alert("Hubo un problema con la API. Intenta en un minuto.");
+        btn.innerText = textoOriginal;
+        btn.disabled = false;
+    }
 }
 
 // 4. ELIMINAR DEL HISTORIAL
