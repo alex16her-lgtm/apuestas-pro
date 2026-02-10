@@ -224,7 +224,8 @@ const firebaseConfig = {
 };  
 firebase.initializeApp(firebaseConfig);  
 const db = firebase.firestore();  
-const ref = db.collection("equipos");    
+const ref = db.collection("equipos"); 
+  
 function overUnder(valorTotal, linea){  
   if (isNaN(valorTotal)) return "-";  
   return valorTotal > linea  
@@ -432,10 +433,15 @@ totB.gol += s.gol.B;
     });  
   
     const n = encuentros.length || 1;  
-  const recomendaciones = generarRecomendaciones(dataProb);
-const listaRecs = recomendaciones
-  .map(r => `<li>${r}</li>`)
-  .join("");
+const recomendaciones = generarRecomendaciones(dataProb);
+
+const listaRecs = recomendaciones.map(r => `
+  <li class="${r.top ? "top-pick" : ""}">
+    ${r.top ? "🔥 " : ""}${r.texto}
+    <span class="confianza">${r.confianza}%</span>
+  </li>
+`).join("");
+
 
     h.innerHTML += `  
     <details class="card">  
@@ -571,48 +577,69 @@ function analizarFormaEquipos(){
   console.log("📊 Forma analizada (manual):", equipoA, "vs", equipoB);  
 }  
   
-function generarRecomendaciones(encuentros) {  
-  if (!Array.isArray(encuentros) || encuentros.length < 3) {  
-    return ["📉 Datos insuficientes para recomendaciones"];  
-  }  
-  
-  const totales = {  
-    goles: 0,  
-    corners: 0,  
-    tarjetas: 0,  
-    tiros: 0  
-  };  
-  
-  encuentros.forEach(e => {  
-    totales.goles += e.stats.gol.A + e.stats.gol.B;  
-    totales.corners += e.stats.cor.A + e.stats.cor.B;  
-    totales.tarjetas += e.stats.tar.A + e.stats.tar.B;  
-    totales.tiros += e.stats.tt.A + e.stats.tt.B;  
-  });  
-  
-  const n = encuentros.length;  
-  
-  const avg = {  
-    goles: totales.goles / n,  
-    corners: totales.corners / n,  
-    tarjetas: totales.tarjetas / n,  
-    tiros: totales.tiros / n  
-  };  
-  
-  const picks = [];  
-  
-  if (avg.goles >= 2.5) picks.push("⚽ Over 2.5 goles");  
-  if (avg.goles <= 2) picks.push("⚽ Under 2.5 goles");  
-  
-  if (avg.corners >= 9) picks.push("🚩 Over 8.5 corners");  
-  
-  if (avg.tarjetas >= 4) picks.push("🟨 Over 3.5 tarjetas");  
-  
-  if (avg.tiros >= 20) picks.push("🎯 Más de 19.5 tiros totales");  
-  
-  return picks.length ? picks : ["🤔 Sin picks claros"];  
-}  
-  
+function generarRecomendaciones(encuentros) {
+  if (!Array.isArray(encuentros) || encuentros.length < 3) {
+    return [{
+      texto: "📉 Datos insuficientes para recomendaciones",
+      confianza: 0,
+      top: true
+    }];
+  }
+
+  const tot = { gol:0, cor:0, tar:0, tt:0 };
+
+  encuentros.forEach(e => {
+    tot.gol += e.stats.gol.A + e.stats.gol.B;
+    tot.cor += e.stats.cor.A + e.stats.cor.B;
+    tot.tar += e.stats.tar.A + e.stats.tar.B;
+    tot.tt  += e.stats.tt.A  + e.stats.tt.B;
+  });
+
+  const n = encuentros.length;
+
+  const avg = {
+    gol: tot.gol / n,
+    cor: tot.cor / n,
+    tar: tot.tar / n,
+    tt:  tot.tt  / n
+  };
+
+  const picks = [];
+
+  function confianza(media, linea) {
+    const diff = Math.abs(media - linea);
+    return Math.min(95, Math.round(50 + diff * 20));
+  }
+
+  picks.push({
+    texto: avg.gol >= 2.5 ? "⚽ Over 2.5 goles" : "⚽ Under 2.5 goles",
+    confianza: confianza(avg.gol, 2.5)
+  });
+
+  picks.push({
+    texto: avg.cor >= 9 ? "🚩 Over 8.5 corners" : "🚩 Under 8.5 corners",
+    confianza: confianza(avg.cor, 8.5)
+  });
+
+  picks.push({
+    texto: avg.tar >= 4 ? "🟨 Over 3.5 tarjetas" : "🟨 Under 3.5 tarjetas",
+    confianza: confianza(avg.tar, 3.5)
+  });
+
+  picks.push({
+    texto: avg.tt >= 20 ? "🎯 Over 19.5 tiros" : "🎯 Under 19.5 tiros",
+    confianza: confianza(avg.tt, 19.5)
+  });
+
+  // 🔥 ordenar por confianza
+  picks.sort((a,b) => b.confianza - a.confianza);
+
+  // 🔥 marcar la mejor
+  picks[0].top = true;
+
+  return picks;
+}
+
 </script>
 
 </body>
