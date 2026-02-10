@@ -228,10 +228,12 @@ const ref = db.collection("equipos");
   
 function overUnder(valorTotal, linea){  
   if (isNaN(valorTotal)) return "-";  
+
   return valorTotal > linea  
-    ? OVER ${linea}  
-    : UNDER ${linea};  
-}  
+    ? `OVER ${linea}`  
+    : `UNDER ${linea}`;  
+}
+
   
 // agregar encuentro  
   function normalizar(texto) {  
