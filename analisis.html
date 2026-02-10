@@ -165,6 +165,9 @@ button{
 <th id="pr1"></th><th id="pr2"></th><th id="pr3"></th><th id="pr4"></th><th id="pr5"></th></tr>
 </tfoot>
 </table>
+  <h3>🧠 Recomendaciones</h3>
+<ul id="recomendaciones"></ul>
+
 </div>
 <div class="card" style="text-align:left">
   <button onclick="irApuestas()">⬅️ Volver a Apuestas</button>
@@ -195,6 +198,16 @@ function overUnder(valorTotal, linea){
 }
 
 // agregar encuentro
+  function normalizar(texto) {
+  if (!texto || typeof texto !== "string") return "";
+
+  return texto
+    .normalize("NFD")                  // quita acentos
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 async function addMatch() {
   // ===============================
   // 1️⃣ VALIDACIONES
@@ -248,6 +261,8 @@ async function addMatch() {
     await ref.add({
       equipoA,
       equipoB,
+        equipoA_norm: normalizar(equipoA),
+  equipoB_norm: normalizar(equipoB),
       encuentros: [encuentro],
       creado: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -312,21 +327,19 @@ ref.onSnapshot(snapshot => {
 const equipoAInput = teamA.value.trim();
 const equipoBInput = teamB.value.trim();
 
-const normalizar = v =>
-  (typeof v === "string" ? v : "")
-    .toLowerCase()
-    .trim();
-
 
 // 👉 SOLO filtra si ambos inputs tienen valor
 if (equipoAInput && equipoBInput) {
-  if (
-    normalizar(m.equipoA) !== normalizar(equipoAInput) ||
-    normalizar(m.equipoB) !== normalizar(equipoBInput)
-  ) return;
+  const a1 = normalizar(m.equipoA);
+  const b1 = normalizar(m.equipoB);
+  const a2 = normalizar(equipoAInput);
+  const b2 = normalizar(equipoBInput);
+
+  const matchDirecto = a1 === a2 && b1 === b2;
+  const matchInvertido = a1 === b2 && b1 === a2;
+
+  if (!matchDirecto && !matchInvertido) return;
 }
-
-
     const encuentros = m.encuentros || [];
     const localElegido = document.getElementById("equipoLocal")?.value || null;
     
@@ -456,6 +469,13 @@ totB.gol += s.gol.B;
       </table>
     </details>`;
   });
+  const recs = generarRecomendaciones(dataProb);
+const ul = document.getElementById("recomendaciones");
+
+if (ul) {
+  ul.innerHTML = recs.map(r => `<li>${r}</li>`).join("");
+}
+
   analizarFormaEquipos();
 });
  
@@ -510,6 +530,47 @@ function analizarFormaEquipos(){
   console.log("📊 Forma analizada (manual):", equipoA, "vs", equipoB);
 }
 
+function generarRecomendaciones(encuentros) {
+  if (!Array.isArray(encuentros) || encuentros.length < 3) {
+    return ["📉 Datos insuficientes para recomendaciones"];
+  }
+
+  const totales = {
+    goles: 0,
+    corners: 0,
+    tarjetas: 0,
+    tiros: 0
+  };
+
+  encuentros.forEach(e => {
+    totales.goles += e.stats.gol.A + e.stats.gol.B;
+    totales.corners += e.stats.cor.A + e.stats.cor.B;
+    totales.tarjetas += e.stats.tar.A + e.stats.tar.B;
+    totales.tiros += e.stats.tt.A + e.stats.tt.B;
+  });
+
+  const n = encuentros.length;
+
+  const avg = {
+    goles: totales.goles / n,
+    corners: totales.corners / n,
+    tarjetas: totales.tarjetas / n,
+    tiros: totales.tiros / n
+  };
+
+  const picks = [];
+
+  if (avg.goles >= 2.5) picks.push("⚽ Over 2.5 goles");
+  if (avg.goles <= 2) picks.push("⚽ Under 2.5 goles");
+
+  if (avg.corners >= 9) picks.push("🚩 Over 8.5 corners");
+
+  if (avg.tarjetas >= 4) picks.push("🟨 Over 3.5 tarjetas");
+
+  if (avg.tiros >= 20) picks.push("🎯 Más de 19.5 tiros totales");
+
+  return picks.length ? picks : ["🤔 Sin picks claros"];
+}
 
 </script>
 
