@@ -278,10 +278,15 @@ const equipoBInput = teamB.value.trim();
 if(!equipoAInput || !equipoBInput) return;
 
 // Si no coincide el análisis guardado con los equipos escritos, lo saltamos
+const normalizar = v => v
+  .toLowerCase()
+  .trim();
+
 if (
-  m.equipoA !== equipoAInput ||
-  m.equipoB !== equipoBInput
+  normalizar(m.equipoA) !== normalizar(equipoAInput) ||
+  normalizar(m.equipoB) !== normalizar(equipoBInput)
 ) return;
+
 
     const encuentros = m.encuentros || [];
     const localElegido = document.getElementById("equipoLocal")?.value || null;
