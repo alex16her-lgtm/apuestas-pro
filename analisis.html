@@ -337,7 +337,13 @@ async function addMatch() {
   const pUnder = Math.round((under / totalPartidos) * 100);
 
   const pick   = pOver >= pUnder ? "OVER" : "UNDER";
-  const pct    = Math.max(pOver, pUnder);
+  let pct = Math.max(pOver, pUnder);
+
+// ajuste por local / visitante
+if (window.ajusteContexto) {
+  pct = Math.min(95, pct + window.ajusteContexto);
+}
+
 
   let color = "red";
   if (pct > 65) color = "green";
@@ -385,6 +391,12 @@ const encuentrosContexto = filtrarPorLocalVisitante(
   encuentros,
   localElegido
 );
+const contexto = analizarContextoLocalVisitante(
+  dataProb,
+  localElegido
+);
+
+window.ajusteContexto = contexto.ajuste;
 
 
 // fallback inteligente
@@ -525,6 +537,14 @@ ${localElegido ? `🏠 Local: ${localElegido === "A" ? m.equipoA : m.equipoB}` :
     ${listaRecs}
   </ul>
 </div>
+if (contexto.etiquetas.length) {
+  h.innerHTML += `
+    <div class="contexto">
+      ${contexto.etiquetas.join(" • ")}
+    </div>
+  `;
+}
+
     </details>`;
   });
  
@@ -649,6 +669,48 @@ function generarRecomendaciones(encuentros) {
   picks[0].top = true;
 
   return picks;
+}
+function analizarContextoLocalVisitante(encuentros, localElegido) {
+  if (!localElegido || encuentros.length < 3) {
+    return { ajuste: 0, etiquetas: [] };
+  }
+
+  let goles = 0, tiros = 0, corners = 0;
+  let partidos = encuentros.length;
+
+  encuentros.forEach(e => {
+    const A = e.stats;
+    if (localElegido === "A") {
+      goles += A.gol.A;
+      tiros += A.tt.A;
+      corners += A.cor.A;
+    } else {
+      goles += A.gol.B;
+      tiros += A.tt.B;
+      corners += A.cor.B;
+    }
+  });
+
+  const avg = {
+    goles: goles / partidos,
+    tiros: tiros / partidos,
+    corners: corners / partidos
+  };
+
+  let score = 0;
+  let etiquetas = [];
+
+  if (avg.goles >= 1.6) score++;
+  if (avg.tiros >= 11) score++;
+  if (avg.corners >= 5) score++;
+
+  if (score >= 2) {
+    etiquetas.push("🏠 Local fuerte");
+    return { ajuste: +10, etiquetas };
+  }
+
+  etiquetas.push("⚖️ Local normal");
+  return { ajuste: 0, etiquetas };
 }
 
 
