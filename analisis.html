@@ -212,249 +212,402 @@ button{
   <button onclick="irEquipos()">📊 Analisis de equipos</button>
 </div>
 </div>
-<script>
-// 🔥 Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
-  authDomain: "apuestas-analisis.firebaseapp.com",
-  projectId: "apuestas-analisis",
-  storageBucket: "apuestas-analisis.firebasestorage.app",
-  messagingSenderId: "542021066839",
-  appId: "1:542021066839:web:bb6a43f578a39d07c68312"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const ref = db.collection("equipos");
-
-// ===============================
-// UTILIDADES
-// ===============================
-function normalizar(texto) {
-  if (!texto || typeof texto !== "string") return "";
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function overUnder(valorTotal, linea) {
-  if (isNaN(valorTotal)) return "-";
-  return valorTotal > linea ? `OVER ${linea}` : `UNDER ${linea}`;
-}
-
-// ===============================
-// AGREGAR ENCUENTRO
-// ===============================
-async function addMatch() {
-  const equipoA = teamA.value.trim();
-  const equipoB = teamB.value.trim();
-
-  if (!equipoA || !equipoB) {
-    alert("Debes ingresar ambos equipos");
-    return;
-  }
-
-  const campos = [ttA, ttB, tapA, tapB, corA, corB, tarA, tarB, golA, golB];
-  for (let c of campos) {
-    if (c.value === "" || isNaN(c.value)) {
-      alert("Todos los campos numéricos deben estar completos");
-      return;
-    }
-  }
-
-  const encuentro = {
-    competencia: competencia.value || "N/A",
-    stats: {
-      tt:  { A: Number(ttA.value),  B: Number(ttB.value)  },
-      tap: { A: Number(tapA.value), B: Number(tapB.value) },
-      cor: { A: Number(corA.value), B: Number(corB.value) },
-      tar: { A: Number(tarA.value), B: Number(tarB.value) },
-      gol: { A: Number(golA.value), B: Number(golB.value) }
-    }
-  };
-
-  const q = await ref
-    .where("equipoA", "==", equipoA)
-    .where("equipoB", "==", equipoB)
-    .limit(1)
-    .get();
-
-  if (q.empty) {
-    await ref.add({
-      equipoA,
-      equipoB,
-      equipoA_norm: normalizar(equipoA),
-      equipoB_norm: normalizar(equipoB),
-      encuentros: [encuentro],
-      creado: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  } else {
-    const doc = q.docs[0];
-    const data = doc.data();
-    const encuentros = Array.isArray(data.encuentros) ? data.encuentros : [];
-    await ref.doc(doc.id).update({
-      encuentros: [...encuentros, encuentro]
-    });
-  }
-
-  alert("✅ Encuentro guardado correctamente");
-}
-
-// ===============================
-// PROBABILIDAD
-// ===============================
-function probOverUnder(encuentros, stat, linea) {
-  let over = 0;
-  let under = 0;
-
-  encuentros.forEach(e => {
-    const total = e.stats[stat].A + e.stats[stat].B;
-    total > linea ? over++ : under++;
-  });
-
-  const n = encuentros.length || 1;
-  const pOver = Math.round((over / n) * 100);
-  const pUnder = Math.round((under / n) * 100);
-
-  const pick = pOver >= pUnder ? "OVER" : "UNDER";
-  const pct = Math.max(pOver, pUnder);
-
-  let color = "red";
-  if (pct >= 65) color = "green";
-  else if (pct >= 55) color = "yellow";
-
-  return `<span class="prob ${color}">${pick} ${linea} (${pct}%)</span>`;
-}
-
-// ===============================
-// RECOMENDACIONES (MEJOR PICK)
-// ===============================
-function generarRecomendaciones(encuentros) {
-  if (!Array.isArray(encuentros) || encuentros.length < 3) {
-    return [{ texto: "📉 Datos insuficientes", confianza: 0 }];
-  }
-
-  const tot = { gol:0, cor:0, tar:0, tt:0 };
-  encuentros.forEach(e => {
-    tot.gol += e.stats.gol.A + e.stats.gol.B;
-    tot.cor += e.stats.cor.A + e.stats.cor.B;
-    tot.tar += e.stats.tar.A + e.stats.tar.B;
-    tot.tt  += e.stats.tt.A  + e.stats.tt.B;
-  });
-
-  const n = encuentros.length;
-  const avg = {
-    gol: tot.gol / n,
-    cor: tot.cor / n,
-    tar: tot.tar / n,
-    tt:  tot.tt  / n
-  };
-
-  function conf(media, linea) {
-    return Math.min(95, Math.round(50 + Math.abs(media - linea) * 20));
-  }
-
-  const picks = [
-    { texto: avg.gol >= 2.5 ? "⚽ Over 2.5 goles" : "⚽ Under 2.5 goles", confianza: conf(avg.gol,2.5) },
-    { texto: avg.cor >= 9 ? "🚩 Over 8.5 corners" : "🚩 Under 8.5 corners", confianza: conf(avg.cor,8.5) },
-    { texto: avg.tar >= 4 ? "🟨 Over 3.5 tarjetas" : "🟨 Under 3.5 tarjetas", confianza: conf(avg.tar,3.5) },
-    { texto: avg.tt  >= 20 ? "🎯 Over 19.5 tiros" : "🎯 Under 19.5 tiros", confianza: conf(avg.tt,19.5) }
-  ];
-
-  picks.sort((a,b) => b.confianza - a.confianza);
-  return picks;
-}
-
-// ===============================
-// HISTORIAL
-// ===============================
-ref.onSnapshot(snapshot => {
-  const h = document.getElementById("historial");
-  h.innerHTML = "";
-
-  snapshot.forEach(doc => {
-    const m = doc.data();
-    if (!m.equipoA || !m.equipoB) return;
-
-    const encuentros = m.encuentros || [];
-    if (!encuentros.length) return;
-
-    let tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-    let totA = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-    let totB = { tt:0, tap:0, cor:0, tar:0, gol:0 };
-    let filas = "";
-
-    encuentros.forEach(e => {
-      const s = e.stats;
-
-      tot.tt  += s.tt.A + s.tt.B;
-      tot.tap += s.tap.A + s.tap.B;
-      tot.cor += s.cor.A + s.cor.B;
-      tot.tar += s.tar.A + s.tar.B;
-      tot.gol += s.gol.A + s.gol.B;
-
-      totA.tt += s.tt.A; totA.tap += s.tap.A; totA.cor += s.cor.A; totA.tar += s.tar.A; totA.gol += s.gol.A;
-      totB.tt += s.tt.B; totB.tap += s.tap.B; totB.cor += s.cor.B; totB.tar += s.tar.B; totB.gol += s.gol.B;
-
-      filas += `
-        <tr>
-          <td>${m.equipoA} vs ${m.equipoB}</td>
-          <td>${e.competencia}</td>
-          <td>${s.tt.A}|${s.tt.B}</td>
-          <td>${s.tap.A}|${s.tap.B}</td>
-          <td>${s.cor.A}|${s.cor.B}</td>
-          <td>${s.tar.A}|${s.tar.B}</td>
-          <td>${s.gol.A}|${s.gol.B}</td>
-        </tr>`;
-    });
-
-    const n = encuentros.length;
-    const mejorPick = generarRecomendaciones(encuentros)[0];
-
-    h.innerHTML += `
-    <details class="card">
-      <summary>⚽ ${m.equipoA} vs ${m.equipoB} (${n} encuentros)</summary>
-
-      <div class="best-pick">
-        🔥 <b>Mejor pick:</b> ${mejorPick.texto}
-        <span class="confianza">(${mejorPick.confianza}%)</span>
-      </div>
-
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Partido</th><th>Competencia</th>
-            <th>TT</th><th>AP</th><th>COR</th><th>TAR</th><th>GOL</th>
-          </tr>
-        </thead>
-        <tbody>${filas}</tbody>
-        <tfoot>
-          <tr><th colspan="2">TOTAL</th><th>${tot.tt}</th><th>${tot.tap}</th><th>${tot.cor}</th><th>${tot.tar}</th><th>${tot.gol}</th></tr>
-          <tr><th colspan="2">PROMEDIO</th>
-            <th>${(tot.tt/n).toFixed(1)}</th>
-            <th>${(tot.tap/n).toFixed(1)}</th>
-            <th>${(tot.cor/n).toFixed(1)}</th>
-            <th>${(tot.tar/n).toFixed(1)}</th>
-            <th>${(tot.gol/n).toFixed(1)}</th>
-          </tr>
-          <tr>
-            <td colspan="2"><b>PROBABILIDAD</b></td>
-            <td>${probOverUnder(encuentros,"tt",24.5)}</td>
-            <td>${probOverUnder(encuentros,"tap",5.5)}</td>
-            <td>${probOverUnder(encuentros,"cor",7.5)}</td>
-            <td>${probOverUnder(encuentros,"tar",2.5)}</td>
-            <td>${probOverUnder(encuentros,"gol",2.5)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </details>`;
-  });
-});
+<script>  
+// 🔥 Firebase  
+const firebaseConfig = {  
+  apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",  
+  authDomain: "apuestas-analisis.firebaseapp.com",  
+  projectId: "apuestas-analisis",  
+  storageBucket: "apuestas-analisis.firebasestorage.app",  
+  messagingSenderId: "542021066839",  
+  appId: "1:542021066839:web:bb6a43f578a39d07c68312"  
+};  
+firebase.initializeApp(firebaseConfig);  
+const db = firebase.firestore();  
+const ref = db.collection("equipos");    
+function overUnder(valorTotal, linea){  
+  if (isNaN(valorTotal)) return "-";  
+  return valorTotal > linea  
+    ? OVER ${linea}  
+    : UNDER ${linea};  
+}  
+  
+// agregar encuentro  
+  function normalizar(texto) {  
+  if (!texto || typeof texto !== "string") return "";  
+  
+  return texto  
+    .normalize("NFD")                  // quita acentos  
+    .replace(/[\u0300-\u036f]/g, "")  
+    .toLowerCase()  
+    .trim();  
+}  
+  
+async function addMatch() {  
+  // ===============================  
+  // 1️⃣ VALIDACIONES  
+  // ===============================  
+  const equipoA = teamA.value.trim();  
+  const equipoB = teamB.value.trim();  
+  
+  if (!equipoA || !equipoB) {  
+    alert("Debes ingresar ambos equipos");  
+    return;  
+  }  
+  
+  const campos = [  
+    ttA, ttB, tapA, tapB,  
+    corA, corB, tarA, tarB,  
+    golA, golB  
+  ];  
+  
+  for (let c of campos) {  
+    if (c.value === "" || isNaN(c.value)) {  
+      alert("Todos los campos numéricos deben estar completos");  
+      return;  
+    }  
+  }  
+  
+  // ===============================  
+  // 2️⃣ CREAR ENCUENTRO  
+  // ===============================  
+  const encuentro = {  
+    competencia: competencia.value || "N/A",  
+    local: equipoLocal.value || null,  
+    stats: {  
+      tt:  { A: Number(ttA.value),  B: Number(ttB.value)  },  
+      tap: { A: Number(tapA.value), B: Number(tapB.value) },  
+      cor: { A: Number(corA.value), B: Number(corB.value) },  
+      tar: { A: Number(tarA.value), B: Number(tarB.value) },  
+      gol: { A: Number(golA.value), B: Number(golB.value) }  
+    }  
+  };  
+  
+  // ===============================  
+  // 3️⃣ BLOQUE DE GUARDADO (ESTE ES EL QUE FALTABA)  
+  // ===============================  
+  const q = await ref  
+    .where("equipoA", "==", equipoA)  
+    .where("equipoB", "==", equipoB)  
+    .limit(1)  
+    .get();  
+  
+  if (q.empty) {  
+    await ref.add({  
+      equipoA,  
+      equipoB,  
+        equipoA_norm: normalizar(equipoA),  
+  equipoB_norm: normalizar(equipoB),  
+      encuentros: [encuentro],  
+      creado: firebase.firestore.FieldValue.serverTimestamp()  
+    });  
+  } else {  
+    const doc = q.docs[0];  
+    const data = doc.data();  
+  
+    const encuentros = Array.isArray(data.encuentros)  
+      ? data.encuentros  
+      : [];  
+  
+    await ref.doc(doc.id).update({  
+      encuentros: [...encuentros, encuentro]  
+    });  
+  }  
+  
+  // ===============================  
+  // 4️⃣ CONFIRMACIÓN  
+  // ===============================  
+  alert("✅ Encuentro guardado correctamente");  
+}  
+  
+  function probOverUnder(encuentros, stat, linea){  
+  let over = 0;  
+  let under = 0;  
+  
+  encuentros.forEach(e => {  
+    const s = e.stats;  
+    const total = s[stat].A + s[stat].B;  
+    if (total > linea) over++;  
+    else under++;  
+  });  
+  
+  const totalPartidos = encuentros.length || 1;  
+  const pOver  = Math.round((over / totalPartidos) * 100);  
+  const pUnder = Math.round((under / totalPartidos) * 100);  
+  
+  const pick   = pOver >= pUnder ? "OVER" : "UNDER";  
+  const pct    = Math.max(pOver, pUnder);  
+  
+  let color = "red";  
+  if (pct > 65) color = "green";  
+  else if (pct >= 55) color = "yellow";  
+  
+  return `  
+    <span class="prob ${color}">  
+      ${pick} ${linea} (${pct}%)  
+    </span>  
+  `;  
+}  
+ref.onSnapshot(snapshot => {  
+  const h = document.getElementById("historial");  
+  h.innerHTML = "";  
+  
+  snapshot.forEach(doc => {  
+    const m = doc.data();  
+    if (!m.equipoA || !m.equipoB) {  
+  console.warn("Documento inválido:", m);  
+  return;  
+}  
+  
+const equipoAInput = teamA.value.trim();  
+const equipoBInput = teamB.value.trim();  
+  
+  
+// 👉 SOLO filtra si ambos inputs tienen valor  
+if (equipoAInput && equipoBInput) {  
+  const a1 = normalizar(m.equipoA);  
+  const b1 = normalizar(m.equipoB);  
+  const a2 = normalizar(equipoAInput);  
+  const b2 = normalizar(equipoBInput);  
+  
+  const matchDirecto = a1 === a2 && b1 === b2;  
+  const matchInvertido = a1 === b2 && b1 === a2;  
+  
+  if (!matchDirecto && !matchInvertido) return;  
+}  
+    const encuentros = m.encuentros || [];  
+    const localElegido = document.getElementById("equipoLocal")?.value || null;  
+      
+  
+// encuentros según contexto  
+const encuentrosContexto = localElegido  
+  ? filtrarPorLocal(encuentros, localElegido)  
+  : encuentros;  
+  
+// fallback inteligente  
+const dataProb = encuentrosContexto.length >= 3  
+  ? encuentrosContexto  
+  : encuentros;  
+  
+    let tot = {  
+      tt: 0, tap: 0, cor: 0, tar: 0, gol: 0  
+    };  
+let totA = { tt:0, tap:0, cor:0, tar:0, gol:0 };  
+let totB = { tt:0, tap:0, cor:0, tar:0, gol:0 };  
+    let filas = "";  
+  
+    encuentros.forEach(e => {  
+      const s = e.stats;  
+  
+      tot.tt  += s.tt.A  + s.tt.B;  
+      tot.tap += s.tap.A + s.tap.B;  
+      tot.cor += s.cor.A + s.cor.B;  
+      tot.tar += s.tar.A + s.tar.B;  
+      tot.gol += s.gol.A + s.gol.B;  
+// Equipo A  
+totA.tt  += s.tt.A;  
+totA.tap += s.tap.A;  
+totA.cor += s.cor.A;  
+totA.tar += s.tar.A;  
+totA.gol += s.gol.A;  
+  
+// Equipo B  
+totB.tt  += s.tt.B;  
+totB.tap += s.tap.B;  
+totB.cor += s.cor.B;  
+totB.tar += s.tar.B;  
+totB.gol += s.gol.B;  
+            
+      filas += `  
+        <tr>  
+          <td>${m.equipoA} vs ${m.equipoB}</td>  
+          <td>${e.competencia}</td>  
+          <td>${s.tt.A}|${s.tt.B}</td>  
+          <td>${s.tap.A}|${s.tap.B}</td>  
+          <td>${s.cor.A}|${s.cor.B}</td>  
+          <td>${s.tar.A}|${s.tar.B}</td>  
+          <td>${s.gol.A}|${s.gol.B}</td>  
+        </tr>  
+      `;  
+    });  
+  
+    const n = encuentros.length || 1;  
+  
+    h.innerHTML += `  
+    <details class="card">  
+      <summary>⚽ ${m.equipoA} vs ${m.equipoB} (${encuentros.length} encuentros)</summary>  
+  
+      <table class="table">  
+        <thead>  
+          <tr>  
+            <th>Partido</th>  
+            <th>Competencia</th>  
+            <th>TT (A|B)</th>  
+            <th>AP (A|B)</th>  
+            <th>COR (A|B)</th>  
+            <th>TAR (A|B)</th>  
+            <th>GOL (A|B)</th>  
+          </tr>  
+        </thead>  
+  
+        <tbody>  
+          ${filas}  
+        </tbody>  
+  
+        <tfoot>  
+          <tr>  
+            <th colspan="2">TOTAL</th>  
+            <th>${tot.tt}</th>  
+            <th>${tot.tap}</th>  
+            <th>${tot.cor}</th>  
+            <th>${tot.tar}</th>  
+            <th>${tot.gol}</th>  
+          </tr>  
+  
+          <tr>  
+            <th colspan="2">PROMEDIO</th>  
+            <th>${(tot.tt/n).toFixed(1)}</th>  
+            <th>${(tot.tap/n).toFixed(1)}</th>  
+            <th>${(tot.cor/n).toFixed(1)}</th>  
+            <th>${(tot.tar/n).toFixed(1)}</th>  
+            <th>${(tot.gol/n).toFixed(1)}</th>  
+          </tr>  
+<tr>  
+  <th colspan="2">PROM ${m.equipoA}</th>  
+  <th>${(totA.tt/n).toFixed(1)}</th>  
+  <th>${(totA.tap/n).toFixed(1)}</th>  
+  <th>${(totA.cor/n).toFixed(1)}</th>  
+  <th>${(totA.tar/n).toFixed(1)}</th>  
+  <th>${(totA.gol/n).toFixed(1)}</th>  
+</tr>  
+<tr>  
+  <th colspan="2">PROM ${m.equipoB}</th>  
+  <th>${(totB.tt/n).toFixed(1)}</th>  
+  <th>${(totB.tap/n).toFixed(1)}</th>  
+  <th>${(totB.cor/n).toFixed(1)}</th>  
+  <th>${(totB.tar/n).toFixed(1)}</th>  
+  <th>${(totB.gol/n).toFixed(1)}</th>  
+</tr>  
+  
+          <tr>  
+  <td colspan="2"><b>PROBABILIDAD</b></td>  
+<td>${probOverUnder(dataProb,"tt",24.5)}</td>  
+<td>${probOverUnder(dataProb,"tap",5.5)}</td>  
+<td>${probOverUnder(dataProb,"cor",7.5)}</td>  
+<td>${probOverUnder(dataProb,"tar",2.5)}</td>  
+<td>${probOverUnder(dataProb,"gol",2.5)}</td>  
+  
+  
+</tr>  
+  
+        </tfoot>  
+      </table>  
+    </details>`;  
+  });  
+  const recs = generarRecomendaciones(dataProb);  
+const ul = document.getElementById("recomendaciones");  
+  
+if (ul) {  
+  ul.innerHTML = recs.map(r => <li>${r}</li>).join("");  
+}  
+  
+  analizarFormaEquipos();  
+});  
+   
+  
+  function filtrarPorLocal(encuentros, local){  
+  return encuentros.filter(e => e.local === local);  
+}  
+function irApuestas(){  
+  window.location.href = "index.html";  
+}  
+function irEquipos(){  
+  window.location.href = "buscador_api.html";  
+}  
+function analizarEquipo(partidos){  
+  const tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };  
+  
+  partidos.forEach(p=>{  
+    tot.tt  += p.stats.tt;  
+    tot.tap += p.stats.tap;  
+    tot.cor += p.stats.cor;  
+    tot.tar += p.stats.tar;  
+    tot.gol += p.stats.gol;  
+  });  
+  
+  const n = partidos.length || 1;  
+  
+  return {  
+    prom: {  
+      tt:(tot.tt/n).toFixed(1),  
+      tap:(tot.tap/n).toFixed(1),  
+      cor:(tot.cor/n).toFixed(1),  
+      tar:(tot.tar/n).toFixed(1),  
+      gol:(tot.gol/n).toFixed(1)  
+    },  
+    prob: {  
+      tt:  probOverUnder(partidos.map(p=>({stats:{tt:{A:p.stats.tt,B:0}}})),"tt",20),  
+      gol: probOverUnder(partidos.map(p=>({stats:{gol:{A:p.stats.gol,B:0}}})),"gol",2.5)  
+    }  
+  };  
+}  
+function analizarFormaEquipos(){  
+  // Función manual – no depende de API ni liga  
+  // Se deja para compatibilidad y futuras extensiones  
+  
+  const equipoA = teamA.value.trim();  
+  const equipoB = teamB.value.trim();  
+  
+  if(!equipoA || !equipoB) return;  
+  
+  // Por ahora no hace cálculos extra  
+  // Toda la lógica ya se ejecuta en el onSnapshot  
+  console.log("📊 Forma analizada (manual):", equipoA, "vs", equipoB);  
+}  
+  
+function generarRecomendaciones(encuentros) {  
+  if (!Array.isArray(encuentros) || encuentros.length < 3) {  
+    return ["📉 Datos insuficientes para recomendaciones"];  
+  }  
+  
+  const totales = {  
+    goles: 0,  
+    corners: 0,  
+    tarjetas: 0,  
+    tiros: 0  
+  };  
+  
+  encuentros.forEach(e => {  
+    totales.goles += e.stats.gol.A + e.stats.gol.B;  
+    totales.corners += e.stats.cor.A + e.stats.cor.B;  
+    totales.tarjetas += e.stats.tar.A + e.stats.tar.B;  
+    totales.tiros += e.stats.tt.A + e.stats.tt.B;  
+  });  
+  
+  const n = encuentros.length;  
+  
+  const avg = {  
+    goles: totales.goles / n,  
+    corners: totales.corners / n,  
+    tarjetas: totales.tarjetas / n,  
+    tiros: totales.tiros / n  
+  };  
+  
+  const picks = [];  
+  
+  if (avg.goles >= 2.5) picks.push("⚽ Over 2.5 goles");  
+  if (avg.goles <= 2) picks.push("⚽ Under 2.5 goles");  
+  
+  if (avg.corners >= 9) picks.push("🚩 Over 8.5 corners");  
+  
+  if (avg.tarjetas >= 4) picks.push("🟨 Over 3.5 tarjetas");  
+  
+  if (avg.tiros >= 20) picks.push("🎯 Más de 19.5 tiros totales");  
+  
+  return picks.length ? picks : ["🤔 Sin picks claros"];  
+}  
+  
 </script>
-
-
 
 </body>
 </html>
