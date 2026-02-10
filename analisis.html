@@ -271,6 +271,18 @@ ref.onSnapshot(snapshot => {
 
   snapshot.forEach(doc => {
     const m = doc.data();
+    const equipoAInput = teamA.value.trim();
+const equipoBInput = teamB.value.trim();
+
+// Si no hay equipos escritos, no mostrar nada
+if(!equipoAInput || !equipoBInput) return;
+
+// Si no coincide el análisis guardado con los equipos escritos, lo saltamos
+if (
+  m.equipoA !== equipoAInput ||
+  m.equipoB !== equipoBInput
+) return;
+
     const encuentros = m.encuentros || [];
     const localElegido = document.getElementById("equipoLocal")?.value || null;
     
