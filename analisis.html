@@ -413,6 +413,33 @@ function irApuestas(){
 function irEquipos(){
   window.location.href = "buscador_api.html";
 }
+function analizarEquipo(partidos){
+  const tot = { tt:0, tap:0, cor:0, tar:0, gol:0 };
+
+  partidos.forEach(p=>{
+    tot.tt  += p.stats.tt;
+    tot.tap += p.stats.tap;
+    tot.cor += p.stats.cor;
+    tot.tar += p.stats.tar;
+    tot.gol += p.stats.gol;
+  });
+
+  const n = partidos.length || 1;
+
+  return {
+    prom: {
+      tt:(tot.tt/n).toFixed(1),
+      tap:(tot.tap/n).toFixed(1),
+      cor:(tot.cor/n).toFixed(1),
+      tar:(tot.tar/n).toFixed(1),
+      gol:(tot.gol/n).toFixed(1)
+    },
+    prob: {
+      tt:  probOverUnder(partidos.map(p=>({stats:{tt:{A:p.stats.tt,B:0}}})),"tt",20),
+      gol: probOverUnder(partidos.map(p=>({stats:{gol:{A:p.stats.gol,B:0}}})),"gol",2.5)
+    }
+  };
+}
 
 </script>
 
