@@ -271,21 +271,18 @@ ref.onSnapshot(snapshot => {
 
   snapshot.forEach(doc => {
     const m = doc.data();
-    const equipoAInput = teamA.value.trim();
+const equipoAInput = teamA.value.trim();
 const equipoBInput = teamB.value.trim();
 
-// Si no hay equipos escritos, no mostrar nada
-if(!equipoAInput || !equipoBInput) return;
+const normalizar = v => v.toLowerCase().trim();
 
-// Si no coincide el análisis guardado con los equipos escritos, lo saltamos
-const normalizar = v => v
-  .toLowerCase()
-  .trim();
-
-if (
-  normalizar(m.equipoA) !== normalizar(equipoAInput) ||
-  normalizar(m.equipoB) !== normalizar(equipoBInput)
-) return;
+// 👉 SOLO filtra si ambos inputs tienen valor
+if (equipoAInput && equipoBInput) {
+  if (
+    normalizar(m.equipoA) !== normalizar(equipoAInput) ||
+    normalizar(m.equipoB) !== normalizar(equipoBInput)
+  ) return;
+}
 
 
     const encuentros = m.encuentros || [];
