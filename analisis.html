@@ -600,8 +600,9 @@ function generarRecomendaciones(encuentros) {
 
   return picks;
 }
-function analizarContextoLocalVisitante(encuentros, ) {
-  if (! || encuentros.length < 3) {
+
+function analizarContextoLocalVisitante(encuentros, localElegido) {
+  if (!localElegido || !Array.isArray(encuentros) || encuentros.length < 3) {
     return { ajuste: 0, etiquetas: [] };
   }
 
@@ -609,15 +610,16 @@ function analizarContextoLocalVisitante(encuentros, ) {
   let partidos = encuentros.length;
 
   encuentros.forEach(e => {
-    const A = e.stats;
-    if ( === "A") {
-      goles += A.gol.A;
-      tiros += A.tt.A;
-      corners += A.cor.A;
+    const s = e.stats;
+
+    if (localElegido === "A") {
+      goles   += s.gol.A;
+      tiros   += s.tt.A;
+      corners += s.cor.A;
     } else {
-      goles += A.gol.B;
-      tiros += A.tt.B;
-      corners += A.cor.B;
+      goles   += s.gol.B;
+      tiros   += s.tt.B;
+      corners += s.cor.B;
     }
   });
 
@@ -627,22 +629,21 @@ function analizarContextoLocalVisitante(encuentros, ) {
     corners: corners / partidos
   };
 
-  let score = 0;
+  let ajuste = 0;
   let etiquetas = [];
 
-  if (avg.goles >= 1.6) score++;
-  if (avg.tiros >= 11) score++;
-  if (avg.corners >= 5) score++;
+  if (avg.goles >= 1.6) ajuste += 4;
+  if (avg.tiros >= 11) ajuste += 3;
+  if (avg.corners >= 5) ajuste += 3;
 
-  if (score >= 2) {
+  if (ajuste >= 6) {
     etiquetas.push("🏠 Local fuerte");
-    return { ajuste: +10, etiquetas };
+  } else {
+    etiquetas.push("⚖️ Local normal");
   }
 
-  etiquetas.push("⚖️ Local normal");
-  return { ajuste: 0, etiquetas };
+  return { ajuste, etiquetas };
 }
-
 
 
 </script>
