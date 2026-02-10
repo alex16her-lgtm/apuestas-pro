@@ -440,24 +440,18 @@ function analizarEquipo(partidos){
     }
   };
 }
-  async function analizarFormaEquipos(){
+function analizarFormaEquipos(){
+  // Función manual – no depende de API ni liga
+  // Se deja para compatibilidad y futuras extensiones
+
   const equipoA = teamA.value.trim();
   const equipoB = teamB.value.trim();
-  const ligaId  = ligaSeleccionada.value; // ej: Serie A = 135
 
   if(!equipoA || !equipoB) return;
 
-  const cont = document.getElementById("formaEquipos");
-  cont.innerHTML = "⏳ Analizando últimos partidos…";
-
-  // 🔥 API + cache
-  const dataA = await getTeamData(equipoA, ligaId);
-  const dataB = await getTeamData(equipoB, ligaId);
-
-  cont.innerHTML = `
-    ${renderEquipo(equipoA, dataA)}
-    ${renderEquipo(equipoB, dataB)}
-  `;
+  // Por ahora no hace cálculos extra
+  // Toda la lógica ya se ejecuta en el onSnapshot
+  console.log("📊 Forma analizada (manual):", equipoA, "vs", equipoB);
 }
 
 
