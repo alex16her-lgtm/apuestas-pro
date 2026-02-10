@@ -271,10 +271,19 @@ ref.onSnapshot(snapshot => {
 
   snapshot.forEach(doc => {
     const m = doc.data();
+    if (!m.equipoA || !m.equipoB) {
+  console.warn("Documento inválido:", m);
+  return;
+}
+
 const equipoAInput = teamA.value.trim();
 const equipoBInput = teamB.value.trim();
 
-const normalizar = v => v.toLowerCase().trim();
+const normalizar = v =>
+  (typeof v === "string" ? v : "")
+    .toLowerCase()
+    .trim();
+
 
 // 👉 SOLO filtra si ambos inputs tienen valor
 if (equipoAInput && equipoBInput) {
