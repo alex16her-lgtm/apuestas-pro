@@ -165,8 +165,8 @@ button{
 <th id="pr1"></th><th id="pr2"></th><th id="pr3"></th><th id="pr4"></th><th id="pr5"></th></tr>
 </tfoot>
 </table>
-  <h3>🧠 Recomendaciones</h3>
-<ul id="recomendaciones"></ul>
+
+
 
 </div>
 <div class="card" style="text-align:left">
@@ -397,7 +397,10 @@ totB.gol += s.gol.B;
     });
 
     const n = encuentros.length || 1;
-
+     const recomendaciones = generarRecomendaciones(dataProb);
+  const listaRecs = recomendaciones
+  .map(r => `<li>${r}</li>`)
+  .join("");
     h.innerHTML += `
     <details class="card">
       <summary>⚽ ${m.equipoA} vs ${m.equipoB} (${encuentros.length} encuentros)</summary>
@@ -466,15 +469,17 @@ totB.gol += s.gol.B;
 </tr>
 
         </tfoot>
+
       </table>
+                   <div class="recs">
+  <h4>🧠 Recomendaciones</h4>
+  <ul>
+    ${listaRecs}
+  </ul>
+</div>
     </details>`;
   });
-  const recs = generarRecomendaciones(dataProb);
-const ul = document.getElementById("recomendaciones");
-
-if (ul) {
-  ul.innerHTML = recs.map(r => `<li>${r}</li>`).join("");
-}
+ 
 
   analizarFormaEquipos();
 });
