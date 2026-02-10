@@ -196,47 +196,80 @@ function overUnder(valorTotal, linea){
 
 // agregar encuentro
 async function addMatch() {
+  // ===============================
+  // 1️⃣ VALIDACIONES
+  // ===============================
   const equipoA = teamA.value.trim();
   const equipoB = teamB.value.trim();
 
   if (!equipoA || !equipoB) {
-    alert("Faltan equipos");
+    alert("Debes ingresar ambos equipos");
     return;
   }
 
+  const campos = [
+    ttA, ttB, tapA, tapB,
+    corA, corB, tarA, tarB,
+    golA, golB
+  ];
+
+  for (let c of campos) {
+    if (c.value === "" || isNaN(c.value)) {
+      alert("Todos los campos numéricos deben estar completos");
+      return;
+    }
+  }
+
+  // ===============================
+  // 2️⃣ CREAR ENCUENTRO
+  // ===============================
   const encuentro = {
-    competencia: competencia.value,
-    local: equipoLocal.value, // "A" o "B
+    competencia: competencia.value || "N/A",
+    local: equipoLocal.value || null,
     stats: {
-      tt:{A:+ttA.value,B:+ttB.value},
-      tap:{A:+tapA.value,B:+tapB.value},
-      cor:{A:+corA.value,B:+corB.value},
-      tar:{A:+tarA.value,B:+tarB.value},
-      gol:{A:+golA.value,B:+golB.value}
+      tt:  { A: Number(ttA.value),  B: Number(ttB.value)  },
+      tap: { A: Number(tapA.value), B: Number(tapB.value) },
+      cor: { A: Number(corA.value), B: Number(corB.value) },
+      tar: { A: Number(tarA.value), B: Number(tarB.value) },
+      gol: { A: Number(golA.value), B: Number(golB.value) }
     }
   };
 
-  // buscar si ya existe ese análisis
+  // ===============================
+  // 3️⃣ BLOQUE DE GUARDADO (ESTE ES EL QUE FALTABA)
+  // ===============================
   const q = await ref
-    .where("equipoA","==",equipoA)
-    .where("equipoB","==",equipoB)
+    .where("equipoA", "==", equipoA)
+    .where("equipoB", "==", equipoB)
+    .limit(1)
     .get();
 
   if (q.empty) {
     await ref.add({
       equipoA,
       equipoB,
-      encuentros:[encuentro],
+      encuentros: [encuentro],
       creado: firebase.firestore.FieldValue.serverTimestamp()
     });
   } else {
     const doc = q.docs[0];
+    const data = doc.data();
+
+    const encuentros = Array.isArray(data.encuentros)
+      ? data.encuentros
+      : [];
+
     await ref.doc(doc.id).update({
-      encuentros: firebase.firestore.FieldValue.arrayUnion(encuentro)
+      encuentros: [...encuentros, encuentro]
     });
   }
+
+  // ===============================
+  // 4️⃣ CONFIRMACIÓN
+  // ===============================
+  alert("✅ Encuentro guardado correctamente");
 }
- 
+
   function probOverUnder(encuentros, stat, linea){
   let over = 0;
   let under = 0;
