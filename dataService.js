@@ -67,7 +67,7 @@ async function getTeamIdByName(teamName){
  * 🧠 2. FUNCIÓN PRINCIPAL (Nombre Limpio)
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false){
-  const yearsToCheck = [2025]; 
+  const yearsToCheck = [2025,2024]; 
   const docId = teamName.toLowerCase().replace(/\s+/g, '_'); // ID LIMPIO
   const cacheRef = db.collection("cache_equipos").doc(docId);
   
