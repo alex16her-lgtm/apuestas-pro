@@ -137,65 +137,6 @@ async function getTeamData(teamName, forceUpdate = false){
   }
   return partidos;
 }
-/*************************************************
- * 📊 CALCULO OVER / UNDER AUTOMÁTICO
- *************************************************/
-function calcularOverUnder(partidos){
-
-  if(!partidos || partidos.length === 0) return null;
-
-  const total = partidos.length;
-
-  const count = (condicion) => partidos.filter(condicion).length;
-
-  const porcentaje = (n) => Number(((n / total) * 100).toFixed(1));
-
-  const promedio = (campo) => 
-    Number((partidos.reduce((acc, p) => acc + (p.stats[campo] || 0), 0) / total).toFixed(2));
-
-  return {
-
-    partidosAnalizados: total,
-
-    goles: {
-      promedio: promedio("gol"),
-      over_1_5: porcentaje(count(p => p.stats.gol > 1)),
-      over_2_5: porcentaje(count(p => p.stats.gol > 2)),
-      over_3_5: porcentaje(count(p => p.stats.gol > 3))
-    },
-
-    tirosTotales: {
-      promedio: promedio("tt"),
-      over_8_5: porcentaje(count(p => p.stats.tt > 8)),
-      over_10_5: porcentaje(count(p => p.stats.tt > 10)),
-      over_12_5: porcentaje(count(p => p.stats.tt > 12))
-    },
-
-    tirosAlArco: {
-      promedio: promedio("tap"),
-      over_3_5: porcentaje(count(p => p.stats.tap > 3)),
-      over_4_5: porcentaje(count(p => p.stats.tap > 4)),
-      over_5_5: porcentaje(count(p => p.stats.tap > 5))
-    },
-
-    corners: {
-      promedio: promedio("cor"),
-      over_4_5: porcentaje(count(p => p.stats.cor > 4)),
-      over_6_5: porcentaje(count(p => p.stats.cor > 6)),
-      over_8_5: porcentaje(count(p => p.stats.cor > 8))
-    },
-
-    tarjetas: {
-      promedio: promedio("tar"),
-      over_2_5: porcentaje(count(p => p.stats.tar > 2)),
-      over_3_5: porcentaje(count(p => p.stats.tar > 3)),
-      over_4_5: porcentaje(count(p => p.stats.tar > 4))
-    },
-
-    btts: porcentaje(count(p => p.stats.gol > 0)) // ambos marcan simplificado (si quieres lo hacemos real)
-  };
-}
-
 
 /*************************************************
  * 👥 3. JUGADORES CLAVE (Nombre Limpio)
