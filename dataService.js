@@ -15,7 +15,7 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.firestore();
-window.db = db; // Esto asegura que buscador_api.html vea la base de datos
+window.db = db; 
 
 /*************************************************
  * 🌐 PROXY HELPER & RETRY SYSTEM
@@ -25,12 +25,14 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(targetApiUrl) {
   const base64Url = btoa(targetApiUrl);
+  // Nota: Aquí usamos las comillas inclinadas ` `
   const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
   
   let attempts = 0;
   while(attempts < 2) {
       const res = await fetch(finalProxyUrl);
       const data = await res.json();
+      
       if(data.errors && (JSON.stringify(data.errors).includes("requests") || JSON.stringify(data.errors).includes("limit"))) {
           console.warn("⏳ API saturada. Esperando 30s...");
           await wait(30000); 
@@ -43,7 +45,7 @@ async function fetchSmart(targetApiUrl) {
 }
 
 /*************************************************
- * 🧠 1. OBTENER TEAM ID (Nombre Limpio)
+ * 🧠 1. OBTENER TEAM ID
  *************************************************/
 async function getTeamIdByName(teamName){
   const docId = teamName.toLowerCase().replace(/\s+/g, '');
@@ -64,11 +66,12 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (Nombre Limpio)
+ * 🧠 2. FUNCIÓN PRINCIPAL (PARTIDOS)
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false){
-  const yearsToCheck = [2025, 2024]; 
-  const docId = teamName.toLowerCase().replace(/\s+/g, '_'); // ID LIMPIO
+  // Ajustamos a años que permite tu plan actual según el error previo
+  const yearsToCheck = [2024, 2023]; 
+  const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
   const cacheRef = db.collection("cache_equipos").doc(docId);
   
   if(!forceUpdate){
@@ -139,7 +142,7 @@ async function getTeamData(teamName, forceUpdate = false){
 }
 
 /*************************************************
- * 👥 3. JUGADORES CLAVE (Nombre Limpio)
+ * 👥 3. JUGADORES CLAVE
  *************************************************/
 async function getTopPlayers(teamName) {
     const docId = teamName.toLowerCase().trim().replace(/\s+/g, '_');
@@ -151,56 +154,37 @@ async function getTopPlayers(teamName) {
     const partidos = doc.data().partidos;
     if (!partidos || partidos.length === 0) return;
 
-    const añoReciente = new Date(partidos[0].fecha).getFullYear();
+    // Buscamos el año del partido más reciente para que coincida
+    const añoPartidos = new Date(partidos[0].fecha).getFullYear();
     const teamId = await getTeamIdByName(teamName);
     if (!teamId) return;
 
-    // Consultamos la API
-    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente}`);
+    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoPartidos}`);
 
     if (!data.response || data.response.length === 0) {
-        console.warn("Intentando con año anterior por falta de datos...");
-        const dataPrev = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente - 1}`);
+        const dataPrev = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoPartidos - 1}`);
         if (dataPrev.response) data.response = dataPrev.response;
     }
 
-    // 🔥 FILTRADO Y ORDENADO DE ESTRELLAS
     const topPlayers = data.response
-        .filter(p => {
-            const stats = p.statistics[0];
-            // Solo jugadores con más de 5 partidos jugados (evita reservas/juveniles)
-            return stats.games.appearences >= 5;
-        })
+        .filter(p => p.statistics[0].games.appearences >= 5)
         .map(p => {
             const s = p.statistics[0];
             return {
                 nombre: p.player.name,
                 foto: p.player.photo,
                 posicion: s.games.position,
-                // Convertimos el rating a número real para que el sort funcione
                 rating: s.games.rating ? parseFloat(s.games.rating) : 0,
                 goles: s.goals.total || 0,
                 asistencias: s.goals.assists || 0
             };
         })
-        // Ordenamos: primero por Rating, luego por Goles (para ver a los goleadores arriba)
-        .sort((a, b) => {
-            if (b.rating !== a.rating) {
-                return b.rating - a.rating;
-            }
-            return b.goles - a.goles;
-        })
-        .slice(0, 5); // Los 5 mejores
+        .sort((a, b) => b.rating - a.rating)
+        .slice(0, 5);
 
-    if (topPlayers.length === 0) {
-        console.error("No se encontraron jugadores que cumplan el filtro de 5 partidos.");
-        return [];
-    }
-
-    // Guardar en Firebase con la marca de tiempo para refrescar la pantalla
     await cacheRef.set({
         jugadores: topPlayers,
-        updated: firebase.firestore.FieldValue.serverTimestamp()
+        updated: firebase.firestore.Timestamp.now()
     }, { merge: true });
 
     console.log(`✅ Estrellas de ${teamName} sincronizadas.`);
