@@ -31,6 +31,15 @@ async function fetchSmart(targetApiUrl) {
   while(attempts < 2) {
       const res = await fetch(finalProxyUrl);
       const data = await res.json();
+
+      // 🔍 ESTO NOS DIRÁ EL SECRETO:
+      if(data.errors && Object.keys(data.errors).length > 0) {
+          console.error("❌ Error real de la API:", data.errors);
+      }
+      if(data.results === 0) {
+          console.warn("⚠️ La API respondió éxito, pero encontró 0 resultados para:", targetApiUrl);
+      }
+
       if(data.errors && (JSON.stringify(data.errors).includes("requests") || JSON.stringify(data.errors).includes("limit"))) {
           console.warn(`⏳ API saturada. Esperando 30s...`);
           await wait(30000); 
