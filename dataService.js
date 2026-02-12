@@ -66,72 +66,85 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (PARTIDOS)
+ * 🧠 2. FUNCIÓN PRINCIPAL (PARTIDOS) - OPTIMIZADA
  *************************************************/
-async function getTeamData(teamName, forceUpdate = false){
-  // Ajustamos a años que permite tu plan actual según el error previo
-  const yearsToCheck = [2024, 2023]; 
+async function getTeamData(teamName, forceUpdate = false) {
+  // Cambiamos el orden para priorizar la temporada más actual
+  const yearsToCheck = [2024, 2025, 2023]; 
   const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
   const cacheRef = db.collection("cache_equipos").doc(docId);
   
-  if(!forceUpdate){
+  if (!forceUpdate) {
     const cache = await cacheRef.get();
-    if(cache.exists){
+    if (cache.exists) {
       const last = cache.data().updated?.toDate();
-      if(last && (Date.now() - last.getTime()) / 36e5 < 12 && cache.data().partidos?.length){
+      // Cache de 6 horas para mayor precisión en ligas activas
+      if (last && (Date.now() - last.getTime()) / 36e5 < 6 && cache.data().partidos?.length) {
         return cache.data().partidos;
       }
     }
   }
 
   const teamId = await getTeamIdByName(teamName);
-  if(!teamId) return [];
+  if (!teamId) return [];
 
-  let fixData = null;
+  let todosLosPartidos = [];
+
+  // Recolectamos partidos de las temporadas relevantes
   for (let year of yearsToCheck) {
-    const data = await fetchSmart(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${year}&status=FT`);
-    if(data.response && data.response.length > 0){
-        fixData = data;
-        break;
+    const data = await fetchSmart(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${year}`);
+    if (data.response && data.response.length > 0) {
+        // Filtramos solo los terminados
+        const terminados = data.response.filter(p => ['FT','AET','PEN'].includes(p.fixture.status.short));
+        todosLosPartidos = todosLosPartidos.concat(terminados);
     }
   }
 
-  if(!fixData) return [];
+  if (todosLosPartidos.length === 0) return [];
 
-  let todos = fixData.response.filter(p => ['FT','AET','PEN'].includes(p.fixture.status.short));
-  todos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
-  const ultimos10 = todos.slice(0, 10);
+  // Ordenamos por fecha real de más reciente a más antiguo
+  todosLosPartidos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
+  
+  const ultimos10 = todosLosPartidos.slice(0, 10);
   const partidos = [];
 
-  for(const f of ultimos10){
+  for (const f of ultimos10) {
     const statData = await fetchSmart(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`);
+    
+    // IMPORTANTE: Buscamos las estadísticas específicamente de NUESTRO equipo
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
     const getVal = (name) => {
-        if(!statsTeam) return 0;
+        if (!statsTeam) return 0;
         const item = statsTeam.statistics.find(x => x.type === name);
         return (item && item.value !== null) ? Number(item.value) : 0;
     };
 
-    let totalShots = getVal("Shots total") || getVal("Total Shots") || (getVal("Shots on Goal") + getVal("Shots off Goal"));
+    // Mejora en la captura de tiros: Sumamos On Goal + Off Goal si Total falla
+    let onGoal = getVal("Shots on Goal");
+    let offGoal = getVal("Shots off Goal");
+    let totalS = getVal("Shots total") || (onGoal + offGoal);
+
     const isHome = f.teams.home.id === teamId;
 
     partidos.push({
-      fecha: f.fixture.date,
+      fecha: f.fixture.date.split('T')[0], // Limpiamos la fecha para que sea legible (AAAA-MM-DD)
       rival: isHome ? f.teams.away.name : f.teams.home.name,
       local: isHome,
       stats: {
-        tt: totalShots, 
-        tap: getVal("Shots on Goal"),
+        tt: totalS, 
+        tap: onGoal, // Tiros a puerta
         cor: getVal("Corner Kicks"),
         tar: getVal("Yellow Cards") + getVal("Red Cards"),
         gol: isHome ? f.goals.home : f.goals.away
       }
     });
-    await wait(1500); 
+
+    // Aumentamos ligeramente el wait para no ser bloqueados por la API
+    await wait(1000); 
   }
 
-  if(partidos.length){
+  if (partidos.length) {
     await cacheRef.set({
       team: teamName,
       partidos: partidos,
@@ -140,7 +153,6 @@ async function getTeamData(teamName, forceUpdate = false){
   }
   return partidos;
 }
-
 /*************************************************
  * 👥 3. JUGADORES CLAVE
  *************************************************/
