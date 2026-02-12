@@ -195,10 +195,7 @@ function calcularOverUnder(partidos){
     btts: porcentaje(count(p => p.stats.gol > 0)) // ambos marcan simplificado (si quieres lo hacemos real)
   };
 }
-const partidos = await getTeamData(teamName);
-const analisis = calcularOverUnder(partidos);
 
-console.log("ANALISIS OVER/UNDER:", analisis);
 
 /*************************************************
  * 👥 3. JUGADORES CLAVE (Nombre Limpio)
