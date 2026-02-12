@@ -25,14 +25,14 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(targetApiUrl) {
   const base64Url = btoa(targetApiUrl);
-  const finalProxyUrl = ${WORKER_URL}?base64=${base64Url};
+  const finalProxyUrl = `${WORKER_URL}?base64=${base64Url}`;
   
   let attempts = 0;
   while(attempts < 2) {
       const res = await fetch(finalProxyUrl);
       const data = await res.json();
       if(data.errors && (JSON.stringify(data.errors).includes("requests") || JSON.stringify(data.errors).includes("limit"))) {
-          console.warn(⏳ API saturada. Esperando 30s...);
+          console.warn("⏳ API saturada. Esperando 30s...");
           await wait(30000); 
           attempts++;
           continue;
@@ -54,7 +54,7 @@ async function getTeamIdByName(teamName){
 
   try {
     const safeName = encodeURIComponent(teamName);
-    const data = await fetchSmart(https://v3.football.api-sports.io/teams?search=${safeName});
+    const data = await fetchSmart(`https://v3.football.api-sports.io/teams?search=${safeName}`);
     if(!data.response || !data.response.length) return null;
     
     const id = data.response[0].team.id;
@@ -86,7 +86,7 @@ async function getTeamData(teamName, forceUpdate = false){
 
   let fixData = null;
   for (let year of yearsToCheck) {
-    const data = await fetchSmart(https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${year}&status=FT);
+    const data = await fetchSmart(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${year}&status=FT`);
     if(data.response && data.response.length > 0){
         fixData = data;
         break;
@@ -101,7 +101,7 @@ async function getTeamData(teamName, forceUpdate = false){
   const partidos = [];
 
   for(const f of ultimos10){
-    const statData = await fetchSmart(https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id});
+    const statData = await fetchSmart(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${f.fixture.id}`);
     const statsTeam = statData.response?.find(s => s.team.id === teamId);
     
     const getVal = (name) => {
@@ -156,11 +156,11 @@ async function getTopPlayers(teamName) {
     if (!teamId) return;
 
     // Consultamos la API
-    const data = await fetchSmart(https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente});
+    const data = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente}`);
 
     if (!data.response || data.response.length === 0) {
         console.warn("Intentando con año anterior por falta de datos...");
-        const dataPrev = await fetchSmart(https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente - 1});
+        const dataPrev = await fetchSmart(`https://v3.football.api-sports.io/players?team=${teamId}&season=${añoReciente - 1}`);
         if (dataPrev.response) data.response = dataPrev.response;
     }
 
@@ -203,5 +203,5 @@ async function getTopPlayers(teamName) {
         updated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
-    console.log(✅ Estrellas de ${teamName} sincronizadas.);
-} 
+    console.log(`✅ Estrellas de ${teamName} sincronizadas.`);
+}
