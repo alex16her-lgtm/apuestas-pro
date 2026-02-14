@@ -1,5 +1,5 @@
 /*************************************************
- * 🔥 FIREBASE CONFIG (SE MANTIENE IGUAL)
+ * 🔥 FIREBASE CONFIG
  *************************************************/
 const firebaseConfig = {
   apiKey: "AIzaSyBtOk-otWrGU7ljda52yhVhSvQKaG3siRM",
@@ -22,180 +22,155 @@ window.db = db;
  *************************************************/
 const SM_TOKEN = "RLAlbBhj6P28HuxsGdZeOzDVGFnjpv5RfB0u6Ut7f3zCfbmIIPqeBieuWMq5"; 
 const SM_BASE = "https://api.sportmonks.com/v3/football";
-/*************************************************
- * 🌐 PROXY HELPER (NUEVO UNIVERSAL)
- *************************************************/
-// Usamos corsproxy.io que es compatible con Sportmonks
-const PROXY_BASE = "https://corsproxy.io/?";
 
+/*************************************************
+ * 🌐 PROXY HELPER (TU WORKER)
+ *************************************************/
+// Volvemos a usar TU infraestructura, que es más segura
+const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(targetUrl) {
-  // 1. Asegurar que el token vaya en la URL
-  let finalTarget = targetUrl;
-  if (!targetUrl.includes("api_token=")) {
-      finalTarget += (targetUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
+  // 1. Asegurar token en la URL
+  let finalUrl = targetUrl;
+  if (!finalUrl.includes("api_token=")) {
+      finalUrl += (finalUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
   }
 
-  // 2. Construir URL para el Proxy Universal
-  // corsproxy.io espera la URL destino codificada justo después del interrogante
-  const proxyUrl = PROXY_BASE + encodeURIComponent(finalTarget);
+  // 2. Codificar en Base64 para que tu Worker lo entienda
+  const base64Url = btoa(finalUrl);
+  const proxyRequest = `${WORKER_URL}?base64=${base64Url}`;
   
-  let attempts = 0;
-  while(attempts < 2) {
-      try {
-          const res = await fetch(proxyUrl);
-          
-          if (!res.ok) {
-            console.error(`Error HTTP: ${res.status}`);
-            // Si es error de servidor, reintentamos
-            if(res.status >= 500) { await wait(2000); attempts++; continue; }
-            return null;
-          }
+  console.log("📡 Solicitando a través del Worker:", finalUrl);
 
-          const data = await res.json();
-          
-          // Verificación de errores de Sportmonks
-          if(data.message && data.message.includes("Unauthenticated")) {
-              console.error("❌ Error de Token: Revisa tu API KEY");
-              alert("Error de Token: Verifica tu API Key de Sportmonks");
-              return null;
-          }
-          
-          return data;
-      } catch (e) {
-          console.error("Error Fetch:", e);
-          attempts++;
-          await wait(2000);
+  try {
+      const res = await fetch(proxyRequest);
+      
+      if (!res.ok) {
+        console.error(`Error del Worker: ${res.status}`);
+        return null;
       }
+
+      const data = await res.json();
+      
+      // Verificar errores de la API
+      if(data.message && data.message.includes("Unauthenticated")) {
+          alert("Error: Token inválido.");
+          return null;
+      }
+      
+      return data;
+  } catch (e) {
+      console.error("Error Fetch:", e);
+      return null;
   }
-  return { data: [] };
 }
+
 /*************************************************
- * 🧠 1. OBTENER TEAM ID (VERSIÓN SPORTMONKS)
+ * 🧠 1. BUSCAR EQUIPO
  *************************************************/
 async function getTeamIdByName(teamName){
-  // Normalizamos el nombre para usarlo como ID del documento en caché
+  // Limpieza de caché (IDs viejos no sirven)
   const docId = teamName.toLowerCase().replace(/\s+/g, '');
   const cacheIdRef = db.collection("cache_ids").doc(docId);
   const cache = await cacheIdRef.get();
 
   if(cache.exists) return cache.data().id;
 
-  try {
-    const safeName = encodeURIComponent(teamName);
-    // Sportmonks búsqueda
-    const url = `${SM_BASE}/teams/search/${safeName}`;
-    const response = await fetchSmart(url);
-    
-    if(!response || !response.data || !response.data.length) return null;
-    
-    // Tomamos el primer resultado
-    const id = response.data[0].id;
-    await cacheIdRef.set({ id: id, name: teamName });
-    return id;
-  } catch (e) { 
-      console.error(e);
-      return null; 
+  // Búsqueda en Sportmonks
+  const url = `${SM_BASE}/teams/search/${teamName}`;
+  const response = await fetchSmart(url);
+  
+  // Sportmonks siempre devuelve { data: [...] }
+  if(!response || !response.data || !response.data.length) {
+      console.warn("Sportmonks devolvió vacío para:", teamName);
+      alert("No se encontró el equipo. Intenta el nombre exacto (ej: Real Madrid).");
+      return null;
   }
+  
+  const id = response.data[0].id;
+  await cacheIdRef.set({ id: id, name: teamName });
+  return id;
 }
 
 /*************************************************
- * 🧠 2. FUNCIÓN PRINCIPAL (PARTIDOS)
+ * 🧠 2. OBTENER DATOS DE PARTIDOS
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false) {
   const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
   const cacheRef = db.collection("cache_equipos").doc(docId);
   
-  // 1. Revisar Caché (si no forzamos actualización)
   if (!forceUpdate) {
     const cache = await cacheRef.get();
     if (cache.exists) {
-      const last = cache.data().updated?.toDate();
-      // Caché válida por 6 horas
-      if (last && (Date.now() - last.getTime()) / 36e5 < 6 && cache.data().partidos?.length) {
-        return cache.data().partidos;
-      }
+        // Validación de caché (12 horas)
+        const last = cache.data().updated?.toDate();
+        if (last && (Date.now() - last.getTime()) / 36e5 < 12 && cache.data().partidos?.length) {
+            return cache.data().partidos;
+        }
     }
   }
 
-  // 2. Obtener ID
   const teamId = await getTeamIdByName(teamName);
-  if (!teamId) {
-      alert("No se encontró el equipo en Sportmonks");
-      return [];
-  }
+  if (!teamId) return [];
 
-  // 3. Definir rango de fechas (Últimos 2 años para asegurar datos)
-  // Formato: YYYY-MM-DD
+  // Rango: Enero 2024 a Hoy
   const hoy = new Date().toISOString().split('T')[0];
-  const inicio = "2024-01-01"; // Ajusta esto si quieres ir más atrás
+  const inicio = "2024-01-01"; 
 
-  // URL Sportmonks: Fixtures entre fechas + Includes (Estadísticas, Participantes, Scores)
-  const url = `${SM_BASE}/fixtures/between/${inicio}/${hoy}/${teamId}?include=statistics;participants;scores;league`;
+  // URL compleja con includes
+  const url = `${SM_BASE}/fixtures/between/${inicio}/${hoy}/${teamId}?include=statistics;participants;scores`;
 
   const rawData = await fetchSmart(url);
-  
-  if (!rawData || !rawData.data || rawData.data.length === 0) return [];
+  if (!rawData || !rawData.data) return [];
 
   let fixtures = rawData.data;
-
-  // Ordenar por fecha (más reciente primero)
   fixtures.sort((a, b) => new Date(b.starting_at) - new Date(a.starting_at));
   
-  // Tomamos los últimos 10
   const ultimos10 = fixtures.slice(0, 10);
   const partidos = [];
 
   for (const f of ultimos10) {
-    // Identificar si somos Local o Visitante
-    // En Sportmonks participants suele traer 2 objetos. Buscamos el nuestro.
-    const metaLocal = f.participants.find(p => p.id === teamId && p.meta.location === 'home');
-    const isHome = !!metaLocal; // true si encontramos meta 'home' con nuestro ID
-
-    // Nombre del rival
-    const rivalObj = f.participants.find(p => p.id !== teamId);
-    const rivalName = rivalObj ? rivalObj.name : "Desconocido";
-
-    // Goles (scores)
-    const golesLocal = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'home')?.score.goals || 0;
-    const golesVisit = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'away')?.score.goals || 0;
+    // Lógica para detectar local/visitante en estructura Sportmonks v3
+    const localPart = f.participants.find(p => p.meta.location === 'home');
+    const isHome = localPart && localPart.id === teamId;
     
-    // ESTADÍSTICAS
-    // Sportmonks devuelve un array "statistics". Debemos filtrar las de NUESTRO equipo.
-    // OJO: A veces viene vacío si el partido es muy reciente o de liga menor.
+    // Nombre rival
+    const rivalObj = f.participants.find(p => p.id !== teamId);
+    const rivalName = rivalObj ? rivalObj.name : "Rival";
+
+    // Goles
+    let golLocal = 0, golVisit = 0;
+    // Intentar sacar goles de scores (current)
+    if (f.scores) {
+        const scL = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'home');
+        const scV = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'away');
+        if(scL) golLocal = scL.score.goals;
+        if(scV) golVisit = scV.score.goals;
+    }
+
+    // Estadísticas
     const myStats = f.statistics ? f.statistics.filter(s => s.participant_id === teamId) : [];
     
-    // Función auxiliar para buscar por type_id
-    // 86: Tiros Totales, 51: Tiros a puerta, 45: Corners, 52: Amarillas, 34: Faltas (ejemplo)
     const getVal = (typeId) => {
-        if (!myStats.length) return 0;
-        // Sportmonks a veces anida en "details" o pone el type_id directo en el objeto
-        // Revisamos estructura común v3:
-        const stat = myStats.find(s => s.type_id === typeId);
-        return stat ? stat.data.value : 0; 
+        const st = myStats.find(s => s.type_id === typeId);
+        return st ? (st.data?.value || st.value || 0) : 0;
     };
 
-    // NOTA: Si Sportmonks devuelve estructura distinta en tu plan, 
-    // podrías necesitar inspeccionar "f.statistics" en consola.
-    
     partidos.push({
       fecha: f.starting_at.split(' ')[0],
       rival: rivalName,
       local: isHome,
       stats: {
-        tt: getVal(86), // Tiros Totales
-        tap: getVal(51), // Tiros a Puerta (Shot on Target)
+        tt: getVal(86),  // Tiros
+        tap: getVal(56), // Tiros puerta (varía según liga, a veces es 56, 51 o 86)
         cor: getVal(45), // Corners
-        tar: getVal(52) + getVal(53), // Amarillas (52) + Rojas (53)
-        gol: isHome ? (f.scores[0]?.score?.goals || 0) : (f.scores[1]?.score?.goals || 0) // Fallback simple de goles
-        // Mejor usamos los goles calculados arriba si la estructura scores es compleja
-        // gol: isHome ? golesLocal : golesVisit
+        tar: getVal(52) + getVal(53), // Tarjetas
+        gol: isHome ? golLocal : golVisit
       }
     });
   }
 
-  // Guardar en Firebase
   if (partidos.length) {
     await cacheRef.set({
       team: teamName,
@@ -207,12 +182,7 @@ async function getTeamData(teamName, forceUpdate = false) {
   return partidos;
 }
 
-/*************************************************
- * 👥 3. JUGADORES (HOLDER SIMPLE)
- *************************************************/
-// Nota: La API de jugadores en Sportmonks es más compleja y consume más créditos.
-// Por ahora dejamos esto simplificado para que no rompa el código.
+// Dummy players
 async function getTopPlayers(teamName) {
-    console.log("Función de jugadores pendiente de migración a Sportmonks ID");
-    alert("La función de jugadores se está actualizando para la nueva API.");
+    alert("Función de jugadores en mantenimiento.");
 }
