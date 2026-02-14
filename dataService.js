@@ -24,47 +24,56 @@ const SM_TOKEN = "RLAlbBhj6P28HuxsGdZeOzDVGFnjpv5RfB0u6Ut7f3zCfbmIIPqeBieuWMq5";
 const SM_BASE = "https://api.sportmonks.com/v3/football";
 
 /*************************************************
- * 🌐 PROXY HELPER (VERSIÓN BLINDADA)
+ * 🌐 PROXY HELPER (MODO DIAGNÓSTICO)
  *************************************************/
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(rawUrl) {
-  // 1. AUTO-CORRECCIÓN DE ESPACIOS
-  // Si la URL viene con espacios (como en tu error), los cambiamos por %20 aquí mismo
-  let cleanUrl = rawUrl.trim().replace(/ /g, "%20");
-
-  // 2. Asegurar Token
+  // 1. LIMPIEZA Y CODIFICACIÓN
+  // Quitamos espacios extra al inicio/final
+  let cleanUrl = rawUrl.trim();
+  
+  // Si no tiene token, lo agregamos
   if (!cleanUrl.includes("api_token=")) {
       cleanUrl += (cleanUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
   }
 
-  // 3. Empaquetar para el Worker
-  const base64Url = btoa(cleanUrl);
+  // 🔴 IMPORTANTE: Codificamos la URL completa para evitar espacios rotos
+  // Esto convierte "Real Madrid" en "Real%20Madrid" automáticamente
+  const encodedTarget = encodeURI(cleanUrl);
+
+  // 2. PREPARAR PROXY
+  const base64Url = btoa(encodedTarget);
   const proxyRequest = `${WORKER_URL}?base64=${base64Url}`;
   
-  // Imprimimos la URL "Limpia" para verificar
-  console.log("📡 Conectando (Corregido):", cleanUrl);
+  console.log(`📡 Intentando conectar a: ${encodedTarget}`);
 
   try {
       const res = await fetch(proxyRequest);
       
+      // Si el proxy falla (Error 500 o 404)
       if (!res.ok) {
-        console.error(`Error del Worker: ${res.status}`);
+        console.error(`❌ Error HTTP del Proxy: ${res.status}`);
         return null;
       }
 
       const data = await res.json();
       
-      // Manejo de errores de Sportmonks
-      if(data.message && data.message.includes("Unauthenticated")) {
-          alert("Error: Token inválido o expirado.");
-          return null;
+      // 🕵️ DIAGNÓSTICO: Ver qué respondió exactamente la API
+      console.log("📩 Respuesta recibida:", data);
+
+      // Verificación de errores comunes
+      if(data.message) {
+          console.warn("⚠️ ALERTA API:", data.message);
+          if (data.message.includes("Unauthenticated")) {
+             alert("Error: Token inválido. Revisa tu suscripción o el código.");
+          }
       }
       
       return data;
   } catch (e) {
-      console.error("Error Fetch:", e);
+      console.error("❌ Error Grave en Fetch:", e);
       return null;
   }
 }
