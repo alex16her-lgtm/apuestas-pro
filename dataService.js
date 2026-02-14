@@ -67,24 +67,35 @@ async function fetchSmart(targetUrl) {
 }
 
 /*************************************************
- * 🧠 1. BUSCAR EQUIPO
+ * 🧠 1. BUSCAR EQUIPO (CORREGIDA)
  *************************************************/
 async function getTeamIdByName(teamName){
-  // Limpieza de caché (IDs viejos no sirven)
+  // Limpieza para ID de Firebase
   const docId = teamName.toLowerCase().replace(/\s+/g, '');
   const cacheIdRef = db.collection("cache_ids").doc(docId);
   const cache = await cacheIdRef.get();
 
   if(cache.exists) return cache.data().id;
 
-  // Búsqueda en Sportmonks
-  const url = `${SM_BASE}/teams/search/${teamName}`;
+  // 🔴 CORRECCIÓN AQUÍ: Usamos encodeURIComponent para los espacios
+  // "Real Madrid" se convertirá en "Real%20Madrid" automáticamente
+  const safeName = encodeURIComponent(teamName);
+  
+  const url = `${SM_BASE}/teams/search/${safeName}`;
+  
+  console.log("🔍 Buscando en API:", url); // Para ver en consola si la URL sale bien
+
   const response = await fetchSmart(url);
   
-  // Sportmonks siempre devuelve { data: [...] }
-  if(!response || !response.data || !response.data.length) {
-      console.warn("Sportmonks devolvió vacío para:", teamName);
-      alert("No se encontró el equipo. Intenta el nombre exacto (ej: Real Madrid).");
+  // Diagnóstico: Si la API devuelve algo raro, lo veremos en consola
+  if(!response) {
+      console.error("❌ La API no respondió nada (null)");
+      return null;
+  }
+  
+  if(!response.data || !response.data.length) {
+      console.warn("⚠️ API respondió pero la lista 'data' está vacía:", response);
+      alert(`No se encontró el equipo: "${teamName}". Intenta verificar el nombre.`);
       return null;
   }
   
