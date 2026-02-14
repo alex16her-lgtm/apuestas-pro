@@ -18,58 +18,53 @@ const db = firebase.firestore();
 window.db = db; 
 
 /*************************************************
- * ⚙️ CONFIGURACIÓN SPORTMONKS
+ * ⚙️ CONFIGURACIÓN API-FOOTBALL (La Original)
  *************************************************/
-const SM_TOKEN = "RLAlbBhj6P28HuxsGdZeOzDVGFnjpv5RfB0u6Ut7f3zCfbmIIPqeBieuWMq5"; 
-const SM_BASE = "https://api.sportmonks.com/v3/football";
+// 👇 Pega aquí tu Key de API-Football (RapidAPI o Dashboard)
+const API_KEY = "06570858d2500d7565171559ba24fb6a"; 
+const API_HOST = "v3.football.api-sports.io";
 
 /*************************************************
- * 🌐 PROXY HELPER (CORREGIDO)
+ * 🌐 PROXY HELPER
  *************************************************/
-const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
+const PROXY_URL = "https://corsproxy.io/?"; 
+
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchSmart(readyUrl) {
-  // 1. Asegurar Token
-  let finalUrl = readyUrl;
-  if (!finalUrl.includes("api_token=")) {
-      finalUrl += (finalUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
-  }
+async function fetchSmart(endpoint) {
+  const targetUrl = `https://${API_HOST}/${endpoint}`;
+  const encodedUrl = encodeURIComponent(targetUrl);
+  const finalUrl = PROXY_URL + encodedUrl;
 
-  // 🔴 CORRECCIÓN: YA NO usamos encodeURI aquí. 
-  // Asumimos que la URL ya viene lista desde la función anterior.
-  
-  // 2. Codificar para el Worker (Base64)
-  const base64Url = btoa(finalUrl);
-  const proxyRequest = `${WORKER_URL}?base64=${base64Url}`;
-  
-  console.log(`📡 Conectando a: ${finalUrl}`);
+  console.log(`📡 Buscando: ${endpoint}`);
 
   try {
-      const res = await fetch(proxyRequest);
+      const res = await fetch(finalUrl, {
+          headers: {
+              "x-apisports-key": API_KEY,
+              "x-rapidapi-host": API_HOST
+          }
+      });
       
       if (!res.ok) {
-        console.error(`❌ Error HTTP del Proxy: ${res.status}`);
+        console.error(`Error HTTP: ${res.status}`);
         return null;
       }
 
       const data = await res.json();
       
-      // Diagnóstico de error de API
-      if(data.message) {
-          if (data.message.includes("No result")) {
-             console.warn("⚠️ API: No se encontraron resultados.");
-             return null;
+      // Chequeo de errores de API-Football
+      if (data.errors && Object.keys(data.errors).length > 0) {
+          console.error("⚠️ Error API:", data.errors);
+          if (JSON.stringify(data.errors).includes("requests")) {
+              alert("Límite diario de API excedido (100 peticiones).");
           }
-          if (data.message.includes("Unauthenticated")) {
-             alert("Error: Token inválido.");
-             return null;
-          }
+          return null;
       }
       
       return data;
   } catch (e) {
-      console.error("❌ Error Fetch:", e);
+      console.error("Error Fetch:", e);
       return null;
   }
 }
@@ -84,26 +79,21 @@ async function getTeamIdByName(teamName){
 
   if(cache.exists) return cache.data().id;
 
-  // 🔴 AQUÍ CODIFICAMOS UNA SOLA VEZ
-  // encodeURIComponent convierte "Real Madrid" en "Real%20Madrid"
-  const safeName = encodeURIComponent(teamName);
+  // Buscamos en la API
+  const response = await fetchSmart(`teams?search=${teamName}`);
   
-  const url = `${SM_BASE}/teams/search/${safeName}`;
-  
-  const response = await fetchSmart(url);
-  
-  if(!response || !response.data || !response.data.length) {
-      alert(`No se encontró el equipo "${teamName}" en Sportmonks.`);
+  if(!response || !response.response || !response.response.length) {
+      alert(`No se encontró el equipo: ${teamName}`);
       return null;
   }
   
-  const id = response.data[0].id;
+  const id = response.response[0].team.id;
   await cacheIdRef.set({ id: id, name: teamName });
   return id;
 }
 
 /*************************************************
- * 🧠 2. OBTENER DATOS DE PARTIDOS
+ * 🧠 2. OBTENER DATOS (LÓGICA 2026 MEJORADA)
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false) {
   const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
@@ -113,7 +103,8 @@ async function getTeamData(teamName, forceUpdate = false) {
     const cache = await cacheRef.get();
     if (cache.exists) {
         const last = cache.data().updated?.toDate();
-        if (last && (Date.now() - last.getTime()) / 36e5 < 12) {
+        // Caché de 4 horas para tener datos frescos de partidos de hoy
+        if (last && (Date.now() - last.getTime()) / 36e5 < 4 && cache.data().partidos?.length) {
             return cache.data().partidos;
         }
     }
@@ -122,59 +113,65 @@ async function getTeamData(teamName, forceUpdate = false) {
   const teamId = await getTeamIdByName(teamName);
   if (!teamId) return [];
 
-  const hoy = new Date().toISOString().split('T')[0];
-  const inicio = "2024-01-01"; 
+  let todosLosPartidos = [];
 
-  // URL compleja
-  const url = `${SM_BASE}/fixtures/between/${inicio}/${hoy}/${teamId}?include=statistics;participants;scores`;
+  // 🔄 ESTRATEGIA: Buscar primero 2026, luego 2025
+  const seasons = [2026, 2025]; 
 
-  const rawData = await fetchSmart(url);
-  if (!rawData || !rawData.data) return [];
+  for (let year of seasons) {
+      // Pedimos partidos de la temporada
+      const data = await fetchSmart(`fixtures?team=${teamId}&season=${year}`);
+      
+      if (data && data.response && data.response.length > 0) {
+          // Filtramos solo los terminados (FT, AET, PEN)
+          const terminados = data.response.filter(p => 
+              ['FT', 'AET', 'PEN'].includes(p.fixture.status.short)
+          );
+          todosLosPartidos = todosLosPartidos.concat(terminados);
+      }
+      // Si ya tenemos suficientes partidos (ej: más de 5) con 2026, no pedimos 2025 para ahorrar API
+      if (todosLosPartidos.length >= 10) break;
+  }
 
-  let fixtures = rawData.data;
-  fixtures.sort((a, b) => new Date(b.starting_at) - new Date(a.starting_at));
+  if (todosLosPartidos.length === 0) return [];
+
+  // Ordenar por fecha (más reciente arriba)
+  todosLosPartidos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
   
-  const ultimos10 = fixtures.slice(0, 10);
+  const ultimos10 = todosLosPartidos.slice(0, 10);
   const partidos = [];
 
   for (const f of ultimos10) {
-    // Buscar mi equipo
-    const localPart = f.participants.find(p => p.meta.location === 'home');
-    const isHome = localPart && localPart.id === teamId;
+    // Pedir estadísticas de CADA partido
+    // OJO: API-Football requiere una llamada extra por partido para stats detalladas
+    const statData = await fetchSmart(`fixtures/statistics?fixture=${f.fixture.id}`);
     
-    // Rival
-    const rivalObj = f.participants.find(p => p.id !== teamId);
-    const rivalName = rivalObj ? rivalObj.name : "Rival";
-
-    // Goles
-    let golLocal = 0, golVisit = 0;
-    if (f.scores) {
-        const scL = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'home');
-        const scV = f.scores.find(s => s.description === 'CURRENT' && s.score.participant === 'away');
-        if(scL) golLocal = scL.score.goals;
-        if(scV) golVisit = scV.score.goals;
-    }
-
-    // Estadísticas
-    const myStats = f.statistics ? f.statistics.filter(s => s.participant_id === teamId) : [];
+    // Buscar mis stats en el array
+    const statsTeam = statData?.response?.find(s => s.team.id === teamId);
     
-    const getVal = (typeId) => {
-        const st = myStats.find(s => s.type_id === typeId);
-        return st ? (st.data?.value || st.value || 0) : 0;
+    const getVal = (name) => {
+        if (!statsTeam) return 0;
+        const item = statsTeam.statistics.find(x => x.type === name);
+        return (item && item.value !== null) ? Number(item.value) : 0;
     };
 
+    const isHome = f.teams.home.id === teamId;
+
     partidos.push({
-      fecha: f.starting_at.split(' ')[0],
-      rival: rivalName,
+      fecha: f.fixture.date.split('T')[0],
+      rival: isHome ? f.teams.away.name : f.teams.home.name,
       local: isHome,
       stats: {
-        tt: getVal(86), 
-        tap: getVal(56), 
-        cor: getVal(45), 
-        tar: getVal(52) + getVal(53),
-        gol: isHome ? golLocal : golVisit
+        tt: getVal("Shots total") || (getVal("Shots on Goal") + getVal("Shots off Goal")), 
+        tap: getVal("Shots on Goal"), 
+        cor: getVal("Corner Kicks"),
+        tar: getVal("Yellow Cards") + getVal("Red Cards"), // Sumamos rojas y amarillas
+        gol: isHome ? f.goals.home : f.goals.away
       }
     });
+
+    // Pequeña pausa para no saturar
+    await wait(300); 
   }
 
   if (partidos.length) {
