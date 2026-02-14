@@ -18,19 +18,16 @@ const db = firebase.firestore();
 window.db = db; 
 
 /*************************************************
- * ⚙️ CONFIGURACIÓN API-FOOTBALL (La Original)
+ * ⚙️ CONFIGURACIÓN API-FOOTBALL (DIRECTA)
  *************************************************/
-
-const API_KEY = "1e695a5969msh316e6c73834414ap188cf9jsn99ecb518766d"; 
-
-// 🔴 CAMBIO IMPORTANTE: El Host de RapidAPI es diferente
-const API_HOST = "api-football-v1.p.rapidapi.com";
+// Usamos tu llave original que SÍ conectaba
+const API_KEY = "06570858d2500d7565171559ba24fb6a"; 
+const API_HOST = "v3.football.api-sports.io";
 
 /*************************************************
  * 🌐 PROXY HELPER
  *************************************************/
 const PROXY_URL = "https://corsproxy.io/?"; 
-
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(endpoint) {
@@ -43,8 +40,7 @@ async function fetchSmart(endpoint) {
   try {
       const res = await fetch(finalUrl, {
           headers: {
-              "x-apisports-key": API_KEY,
-              "x-rapidapi-host": API_HOST
+              "x-apisports-key": API_KEY
           }
       });
       
@@ -55,11 +51,13 @@ async function fetchSmart(endpoint) {
 
       const data = await res.json();
       
-      // Chequeo de errores de API-Football
+      // Chequeo de errores
       if (data.errors && Object.keys(data.errors).length > 0) {
           console.error("⚠️ Error API:", data.errors);
-          if (JSON.stringify(data.errors).includes("requests")) {
-              alert("Límite diario de API excedido (100 peticiones).");
+          // Si es error de plan, lo mostramos en alerta
+          const errorMsg = JSON.stringify(data.errors);
+          if (errorMsg.includes("plan")) {
+             console.warn("El año solicitado está bloqueado por el plan gratuito.");
           }
           return null;
       }
@@ -81,7 +79,6 @@ async function getTeamIdByName(teamName){
 
   if(cache.exists) return cache.data().id;
 
-  // Buscamos en la API
   const response = await fetchSmart(`teams?search=${teamName}`);
   
   if(!response || !response.response || !response.response.length) {
@@ -95,7 +92,7 @@ async function getTeamIdByName(teamName){
 }
 
 /*************************************************
- * 🧠 2. OBTENER DATOS (LÓGICA 2026 MEJORADA)
+ * 🧠 2. OBTENER DATOS (FORZADO A 2024)
  *************************************************/
 async function getTeamData(teamName, forceUpdate = false) {
   const docId = teamName.toLowerCase().replace(/\s+/g, '_'); 
@@ -105,7 +102,6 @@ async function getTeamData(teamName, forceUpdate = false) {
     const cache = await cacheRef.get();
     if (cache.exists) {
         const last = cache.data().updated?.toDate();
-        // Caché de 4 horas para tener datos frescos de partidos de hoy
         if (last && (Date.now() - last.getTime()) / 36e5 < 4 && cache.data().partidos?.length) {
             return cache.data().partidos;
         }
@@ -117,38 +113,33 @@ async function getTeamData(teamName, forceUpdate = false) {
 
   let todosLosPartidos = [];
 
-  // 🔄 ESTRATEGIA: Buscar primero 2026, luego 2025
+  // ✅ SOLUCIÓN FINAL: Solo pedimos 2024 (que es GRATIS y ABIERTO)
   const seasons = [2024]; 
 
   for (let year of seasons) {
-      // Pedimos partidos de la temporada
       const data = await fetchSmart(`fixtures?team=${teamId}&season=${year}`);
       
       if (data && data.response && data.response.length > 0) {
-          // Filtramos solo los terminados (FT, AET, PEN)
           const terminados = data.response.filter(p => 
               ['FT', 'AET', 'PEN'].includes(p.fixture.status.short)
           );
           todosLosPartidos = todosLosPartidos.concat(terminados);
       }
-      // Si ya tenemos suficientes partidos (ej: más de 5) con 2026, no pedimos 2025 para ahorrar API
       if (todosLosPartidos.length >= 10) break;
   }
 
-  if (todosLosPartidos.length === 0) return [];
+  if (todosLosPartidos.length === 0) {
+      alert("No se encontraron partidos en 2024 para este equipo.");
+      return [];
+  }
 
-  // Ordenar por fecha (más reciente arriba)
   todosLosPartidos.sort((a, b) => new Date(b.fixture.date) - new Date(a.fixture.date));
-  
   const ultimos10 = todosLosPartidos.slice(0, 10);
   const partidos = [];
 
   for (const f of ultimos10) {
-    // Pedir estadísticas de CADA partido
-    // OJO: API-Football requiere una llamada extra por partido para stats detalladas
+    // Pedir estadísticas detalladas
     const statData = await fetchSmart(`fixtures/statistics?fixture=${f.fixture.id}`);
-    
-    // Buscar mis stats en el array
     const statsTeam = statData?.response?.find(s => s.team.id === teamId);
     
     const getVal = (name) => {
@@ -167,13 +158,12 @@ async function getTeamData(teamName, forceUpdate = false) {
         tt: getVal("Shots total") || (getVal("Shots on Goal") + getVal("Shots off Goal")), 
         tap: getVal("Shots on Goal"), 
         cor: getVal("Corner Kicks"),
-        tar: getVal("Yellow Cards") + getVal("Red Cards"), // Sumamos rojas y amarillas
+        tar: getVal("Yellow Cards") + getVal("Red Cards"),
         gol: isHome ? f.goals.home : f.goals.away
       }
     });
 
-    // Pequeña pausa para no saturar
-    await wait(300); 
+    await wait(250); // Pausa anti-bloqueo
   }
 
   if (partidos.length) {
