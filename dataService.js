@@ -22,51 +22,55 @@ window.db = db;
  *************************************************/
 const SM_TOKEN = "RLAlbBhj6P28HuxsGdZeOzDVGFnjpv5RfB0u6Ut7f3zCfbmIIPqeBieuWMq5"; 
 const SM_BASE = "https://api.sportmonks.com/v3/football";
-
 /*************************************************
- * 🌐 PROXY HELPER (IGUAL PERO ADAPTADO)
+ * 🌐 PROXY HELPER (NUEVO UNIVERSAL)
  *************************************************/
-const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
+// Usamos corsproxy.io que es compatible con Sportmonks
+const PROXY_BASE = "https://corsproxy.io/?";
+
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchSmart(targetUrl) {
-  // Sportmonks pasa el token en la URL, así que nos aseguramos de que esté
+  // 1. Asegurar que el token vaya en la URL
   let finalTarget = targetUrl;
   if (!targetUrl.includes("api_token=")) {
       finalTarget += (targetUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
   }
 
-  const base64Url = btoa(finalTarget);
-  const proxyUrl = `${WORKER_URL}?base64=${base64Url}`;
+  // 2. Construir URL para el Proxy Universal
+  // corsproxy.io espera la URL destino codificada justo después del interrogante
+  const proxyUrl = PROXY_BASE + encodeURIComponent(finalTarget);
   
   let attempts = 0;
   while(attempts < 2) {
       try {
           const res = await fetch(proxyUrl);
+          
+          if (!res.ok) {
+            console.error(`Error HTTP: ${res.status}`);
+            // Si es error de servidor, reintentamos
+            if(res.status >= 500) { await wait(2000); attempts++; continue; }
+            return null;
+          }
+
           const data = await res.json();
           
-          // Sportmonks a veces devuelve error en el cuerpo
+          // Verificación de errores de Sportmonks
           if(data.message && data.message.includes("Unauthenticated")) {
               console.error("❌ Error de Token: Revisa tu API KEY");
+              alert("Error de Token: Verifica tu API Key de Sportmonks");
               return null;
           }
           
-          // Si nos pasamos del límite (Rate Limit)
-          if(res.status === 429) {
-             console.warn("⏳ Límite alcanzado, esperando 5s...");
-             await wait(5000);
-             attempts++;
-             continue;
-          }
           return data;
       } catch (e) {
           console.error("Error Fetch:", e);
-          return null;
+          attempts++;
+          await wait(2000);
       }
   }
   return { data: [] };
 }
-
 /*************************************************
  * 🧠 1. OBTENER TEAM ID (VERSIÓN SPORTMONKS)
  *************************************************/
