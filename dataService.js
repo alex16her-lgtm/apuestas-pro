@@ -118,7 +118,7 @@ async function getTeamData(teamName, forceUpdate = false) {
   let todosLosPartidos = [];
 
   // 🔄 ESTRATEGIA: Buscar primero 2026, luego 2025
-  const seasons = [2026, 2025]; 
+  const seasons = [2024]; 
 
   for (let year of seasons) {
       // Pedimos partidos de la temporada
