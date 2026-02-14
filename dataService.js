@@ -20,9 +20,11 @@ window.db = db;
 /*************************************************
  * ⚙️ CONFIGURACIÓN API-FOOTBALL (La Original)
  *************************************************/
-// 👇 Pega aquí tu Key de API-Football (RapidAPI o Dashboard)
-const API_KEY = "06570858d2500d7565171559ba24fb6a"; 
-const API_HOST = "v3.football.api-sports.io";
+
+const API_KEY = "1e695a5969msh316e6c73834414ap188cf9jsn99ecb518766d"; 
+
+// 🔴 CAMBIO IMPORTANTE: El Host de RapidAPI es diferente
+const API_HOST = "api-football-v1.p.rapidapi.com";
 
 /*************************************************
  * 🌐 PROXY HELPER
