@@ -24,24 +24,27 @@ const SM_TOKEN = "RLAlbBhj6P28HuxsGdZeOzDVGFnjpv5RfB0u6Ut7f3zCfbmIIPqeBieuWMq5";
 const SM_BASE = "https://api.sportmonks.com/v3/football";
 
 /*************************************************
- * 🌐 PROXY HELPER (TU WORKER)
+ * 🌐 PROXY HELPER (VERSIÓN BLINDADA)
  *************************************************/
-// Volvemos a usar TU infraestructura, que es más segura
 const WORKER_URL = "https://api-football-proxy.alex16her.workers.dev";
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchSmart(targetUrl) {
-  // 1. Asegurar token en la URL
-  let finalUrl = targetUrl;
-  if (!finalUrl.includes("api_token=")) {
-      finalUrl += (finalUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
+async function fetchSmart(rawUrl) {
+  // 1. AUTO-CORRECCIÓN DE ESPACIOS
+  // Si la URL viene con espacios (como en tu error), los cambiamos por %20 aquí mismo
+  let cleanUrl = rawUrl.trim().replace(/ /g, "%20");
+
+  // 2. Asegurar Token
+  if (!cleanUrl.includes("api_token=")) {
+      cleanUrl += (cleanUrl.includes("?") ? "&" : "?") + `api_token=${SM_TOKEN}`;
   }
 
-  // 2. Codificar en Base64 para que tu Worker lo entienda
-  const base64Url = btoa(finalUrl);
+  // 3. Empaquetar para el Worker
+  const base64Url = btoa(cleanUrl);
   const proxyRequest = `${WORKER_URL}?base64=${base64Url}`;
   
-  console.log("📡 Solicitando a través del Worker:", finalUrl);
+  // Imprimimos la URL "Limpia" para verificar
+  console.log("📡 Conectando (Corregido):", cleanUrl);
 
   try {
       const res = await fetch(proxyRequest);
@@ -53,9 +56,9 @@ async function fetchSmart(targetUrl) {
 
       const data = await res.json();
       
-      // Verificar errores de la API
+      // Manejo de errores de Sportmonks
       if(data.message && data.message.includes("Unauthenticated")) {
-          alert("Error: Token inválido.");
+          alert("Error: Token inválido o expirado.");
           return null;
       }
       
